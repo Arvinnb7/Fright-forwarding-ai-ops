@@ -1,19 +1,27 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { DashboardMetrics } from "@/lib/types";
 import { StatCard } from "@/components/StatCard";
+import { RequireAuth } from "@/components/RequireAuth";
+import { Panel } from "@/components/ui";
 
-// Phase 1 dashboard skeleton. The cards below mirror the spec's dashboard
-// overview; they are wired to live metrics in a later phase.
-const CARDS = [
-  { label: "Today's RFQs", value: "—", hint: "Inquiries received today" },
-  { label: "Quotes Sent", value: "—", hint: "Quotations sent today" },
-  { label: "Pending Rates", value: "—", hint: "Awaiting partner replies" },
-  { label: "Follow-ups Due", value: "—", hint: "Need action today" },
-  { label: "Confirmed Bookings", value: "—", hint: "Won this week" },
-  { label: "Estimated Pipeline", value: "—", hint: "Active opportunity value" },
-  { label: "Estimated Margin", value: "—", hint: "Expected gross margin" },
-  { label: "Operational Issues", value: "—", hint: "Open exceptions" },
-];
+function money(v: number) {
+  return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
 
-export default function DashboardPage() {
+function Dashboard() {
+  const [m, setM] = useState<DashboardMetrics | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .get<DashboardMetrics>("/api/reports/dashboard")
+      .then(setM)
+      .catch(() => setError("Could not load metrics."));
+  }, []);
+
   return (
     <div>
       <div className="mb-6">
@@ -23,29 +31,61 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {CARDS.map((c) => (
-          <StatCard key={c.label} label={c.label} value={c.value} hint={c.hint} />
-        ))}
+        <StatCard label="Today's RFQs" value={m?.rfqs_received ?? "—"} hint="Received today" />
+        <StatCard label="Quotes Sent" value={m?.quotes_sent ?? "—"} hint="Sent today" />
+        <StatCard label="Pending Rates" value={m?.pending_rates ?? "—"} hint="Awaiting partners" />
+        <StatCard label="Follow-ups Due" value={m?.follow_ups_due ?? "—"} hint="Need action" />
+        <StatCard label="Confirmed Bookings" value={m?.confirmed_bookings ?? "—"} hint="Today" />
+        <StatCard
+          label="Estimated Pipeline"
+          value={m ? money(m.estimated_pipeline) : "—"}
+          hint="Active opportunities"
+        />
+        <StatCard
+          label="Estimated Margin"
+          value={m ? money(m.estimated_margin) : "—"}
+          hint="Expected gross margin"
+        />
+        <StatCard label="Lost / Won today" value={m ? `${m.lost_today} / ${m.won_today}` : "—"} />
       </div>
 
-      <div className="mt-8 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-        <p className="font-medium text-slate-700">Getting started</p>
-        <p className="mt-1">
-          The backend, database, AI agents and infrastructure are in place. The
-          RFQ Inbox, rate comparison, quotation builder and follow-up center are
-          delivered in the next phase. Open the API docs at{" "}
-          <a
-            className="text-brand-600 underline"
-            href="http://localhost:8000/docs"
-            target="_blank"
-            rel="noreferrer"
-          >
-            localhost:8000/docs
-          </a>{" "}
-          to try the RFQ parser endpoint.
-        </p>
+      <div className="mt-8">
+        <Panel title="High-value opportunities">
+          {!m || m.high_value_opportunities.length === 0 ? (
+            <p className="text-sm text-slate-500">No active high-value quotes.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-slate-500">
+                  <th className="py-1">Quote</th>
+                  <th>Value</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {m.high_value_opportunities.map((q, i) => (
+                  <tr key={i} className="border-t border-slate-100">
+                    <td className="py-2">{q.quote_number ?? "—"}</td>
+                    <td>{q.selling_price ? money(q.selling_price) : "—"}</td>
+                    <td>{q.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <RequireAuth>
+      <Dashboard />
+    </RequireAuth>
   );
 }
