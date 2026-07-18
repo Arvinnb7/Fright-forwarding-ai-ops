@@ -50,6 +50,14 @@ class IntegrationFakeLLM:
         self, *, system: str, user: str, schema: dict, max_tokens: int = 8000
     ) -> dict:
         props = schema.get("properties", {})
+        if "suggestions" in props:  # document-suggestions schema
+            return {
+                "suggestions": [
+                    {"document_type": "Commercial Invoice", "reason": "Required for customs."},
+                    {"document_type": "Packing List", "reason": "Required for cargo handling."},
+                    {"document_type": "Bill of Lading", "reason": "Sea shipment transport document."},
+                ]
+            }
         if "options" in props:  # rate-analysis schema
             ids = props["options"]["items"]["properties"]["rate_id"]["enum"]
             return {

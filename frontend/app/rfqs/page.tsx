@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/lib/api";
-import { RFQ } from "@/lib/types";
+import { api, API_BASE_URL, getToken } from "@/lib/api";
+import { RFQ, RFQ_STATUSES } from "@/lib/types";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Button, Panel, TextArea, ErrorText } from "@/components/ui";
 import { StatusBadge } from "@/components/StatusBadge";
+
+const PAGE_SIZE = 25;
 
 function Inbox() {
   const router = useRouter();
@@ -15,11 +17,41 @@ function Inbox() {
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState("");
   const [rfqs, setRfqs] = useState<RFQ[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
 
   function load() {
-    api.get<RFQ[]>("/api/rfqs").then(setRfqs).catch(() => {});
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(page * PAGE_SIZE),
+    });
+    if (search) params.set("search", search);
+    if (statusFilter) params.set("status_filter", statusFilter);
+    fetch(`${API_BASE_URL}/api/rfqs?${params}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then(async (res) => {
+        setTotal(Number(res.headers.get("X-Total-Count") ?? 0));
+        setRfqs(await res.json());
+      })
+      .catch(() => {});
   }
-  useEffect(load, []);
+  useEffect(load, [search, statusFilter, page]);
+
+  async function exportCsv() {
+    const res = await fetch(`${API_BASE_URL}/api/exports/rfqs.csv`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "rfqs.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function parse() {
     setError("");
@@ -61,9 +93,30 @@ function Inbox() {
         </div>
       </Panel>
 
-      <Panel title="Recent RFQs">
+      <Panel
+        title={`RFQs (${total})`}
+        actions={
+          <div className="flex gap-2">
+            <input
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+              placeholder="Search route/commodity…"
+              value={search}
+              onChange={(e) => { setPage(0); setSearch(e.target.value); }}
+            />
+            <select
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+              value={statusFilter}
+              onChange={(e) => { setPage(0); setStatusFilter(e.target.value); }}
+            >
+              <option value="">All statuses</option>
+              {RFQ_STATUSES.map((s) => (<option key={s}>{s}</option>))}
+            </select>
+            <Button variant="secondary" onClick={exportCsv}>CSV</Button>
+          </div>
+        }
+      >
         {rfqs.length === 0 ? (
-          <p className="text-sm text-slate-500">No RFQs yet.</p>
+          <p className="text-sm text-slate-500">No RFQs match.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -95,6 +148,23 @@ function Inbox() {
               ))}
             </tbody>
           </table>
+        )}
+        {total > PAGE_SIZE && (
+          <div className="mt-3 flex items-center justify-between text-sm">
+            <Button variant="secondary" onClick={() => setPage(page - 1)} disabled={page === 0}>
+              ← Prev
+            </Button>
+            <span className="text-slate-500">
+              Page {page + 1} of {Math.ceil(total / PAGE_SIZE)}
+            </span>
+            <Button
+              variant="secondary"
+              onClick={() => setPage(page + 1)}
+              disabled={(page + 1) * PAGE_SIZE >= total}
+            >
+              Next →
+            </Button>
+          </div>
         )}
       </Panel>
     </div>

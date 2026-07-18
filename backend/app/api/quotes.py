@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -62,12 +62,23 @@ def approve(
 
 @router.get("", response_model=list[QuoteOut])
 def list_quotes(
+    response: Response,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-    limit: int = 100,
+    search: str | None = None,
+    status_filter: str | None = None,
+    limit: int = 50,
     offset: int = 0,
 ) -> list[Quote]:
-    stmt = select(Quote).order_by(Quote.created_at.desc()).limit(limit).offset(offset)
+    stmt = select(Quote)
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.where(or_(Quote.quote_number.ilike(like), Quote.lost_reason.ilike(like)))
+    if status_filter:
+        stmt = stmt.where(Quote.status == status_filter)
+    total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
+    response.headers["X-Total-Count"] = str(total)
+    stmt = stmt.order_by(Quote.created_at.desc()).limit(limit).offset(offset)
     return list(db.execute(stmt).scalars().all())
 
 

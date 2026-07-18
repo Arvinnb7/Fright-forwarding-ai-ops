@@ -26,5 +26,9 @@ celery_app.conf.update(
             "task": "app.workers.tasks.refresh_due_follow_ups",
             "schedule": crontab(hour=6, minute=0),
         },
+        "daily-database-backup": {
+            "task": "app.workers.tasks.run_daily_backup",
+            "schedule": crontab(hour=2, minute=0),
+        },
     },
 )

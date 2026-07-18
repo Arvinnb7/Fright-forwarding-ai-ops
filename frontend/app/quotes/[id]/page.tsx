@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api, API_BASE_URL, getToken } from "@/lib/api";
-import { Quote } from "@/lib/types";
+import { Booking, Quote } from "@/lib/types";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Button, CopyButton, ErrorText, Panel, TextArea } from "@/components/ui";
 import { StatusBadge } from "@/components/StatusBadge";
 
 const PENDING = "Pending approval";
 
+const CONVERTIBLE = ["Sent", "Approved", "Follow-up due", "Negotiating"];
+
 function QuoteDetail({ id }: { id: number }) {
+  const router = useRouter();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [price, setPrice] = useState("");
   const [text, setText] = useState("");
@@ -39,6 +43,19 @@ function QuoteDetail({ id }: { id: number }) {
         lost_reason: !approved ? lostReason : null,
       });
       load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function convertToBooking() {
+    setBusy("convert");
+    setError("");
+    try {
+      const b = await api.post<Booking>("/api/bookings/from-quote", { quote_id: id });
+      router.push(`/bookings/${b.id}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -142,9 +159,16 @@ function QuoteDetail({ id }: { id: number }) {
           </div>
         </Panel>
       ) : (
-        <Button variant="secondary" onClick={downloadPdf}>
-          Download PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={downloadPdf}>
+            Download PDF
+          </Button>
+          {CONVERTIBLE.includes(quote.status) && (
+            <Button onClick={convertToBooking} disabled={busy === "convert"}>
+              {busy === "convert" ? "Converting…" : "Customer confirmed → create booking"}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

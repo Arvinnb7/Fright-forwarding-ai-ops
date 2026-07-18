@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import {
+  Customer,
   PartnerRate,
   RateAnalysis,
   RFQ,
@@ -17,6 +18,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 function Detail({ id }: { id: number }) {
   const router = useRouter();
   const [rfq, setRfq] = useState<RFQ | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [error, setError] = useState("");
 
   // editable fields
@@ -64,8 +66,16 @@ function Detail({ id }: { id: number }) {
   useEffect(() => {
     loadRfq();
     loadRates();
+    api.get<Customer[]>("/api/customers").then(setCustomers).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function assignCustomer(customerId: string) {
+    await api.patch(`/api/rfqs/${id}`, {
+      customer_id: customerId ? Number(customerId) : null,
+    });
+    loadRfq();
+  }
 
   async function saveFields() {
     setError("");
@@ -154,7 +164,19 @@ function Detail({ id }: { id: number }) {
             {rfq.origin ?? "?"} → {rfq.destination ?? "?"}
           </p>
         </div>
-        <StatusBadge value={rfq.status} />
+        <div className="flex items-center gap-3">
+          <select
+            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+            value={rfq.customer_id ?? ""}
+            onChange={(e) => assignCustomer(e.target.value)}
+          >
+            <option value="">— No customer —</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>{c.company_name}</option>
+            ))}
+          </select>
+          <StatusBadge value={rfq.status} />
+        </div>
       </div>
 
       <ErrorText>{error}</ErrorText>

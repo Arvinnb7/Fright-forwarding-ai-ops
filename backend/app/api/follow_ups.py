@@ -23,6 +23,7 @@ from app.schemas.follow_up import (
     FollowUpUpdate,
 )
 from app.services.context import quote_context
+from app.services.follow_up_service import schedule_next_follow_up
 
 router = APIRouter()
 
@@ -89,8 +90,12 @@ def update_follow_up(
     _: User = Depends(get_current_user),
 ) -> FollowUp:
     fu = _require_follow_up(db, follow_up_id)
+    was_sent = fu.status == FollowUpStatus.SENT
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(fu, field, value)
+    # Completing a follow-up schedules the next one in the 0/1/3/5/7 cadence.
+    if fu.status == FollowUpStatus.SENT and not was_sent:
+        schedule_next_follow_up(db, fu)
     db.commit()
     db.refresh(fu)
     return fu

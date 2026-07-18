@@ -1,4 +1,30 @@
 const COLORS: Record<string, string> = {
+  // Booking lifecycle
+  "Booking confirmed": "bg-blue-100 text-blue-800",
+  "Awaiting documents": "bg-amber-100 text-amber-800",
+  "In transit": "bg-indigo-100 text-indigo-800",
+  "Under customs clearance": "bg-amber-100 text-amber-800",
+  Delivered: "bg-green-100 text-green-800",
+  Closed: "bg-slate-100 text-slate-500",
+  // Documents
+  Required: "bg-slate-100 text-slate-700",
+  Received: "bg-green-100 text-green-800",
+  Missing: "bg-rose-100 text-rose-800",
+  Expired: "bg-rose-100 text-rose-800",
+  "Needs correction": "bg-amber-100 text-amber-800",
+  // Issues
+  Open: "bg-rose-100 text-rose-800",
+  "In progress": "bg-amber-100 text-amber-800",
+  Resolved: "bg-green-100 text-green-800",
+  Medium: "bg-amber-100 text-amber-800",
+  Low: "bg-slate-100 text-slate-600",
+  // Quotes / misc
+  "Pending approval": "bg-amber-100 text-amber-800",
+  Approved: "bg-blue-100 text-blue-800",
+  Sent: "bg-violet-100 text-violet-800",
+  Draft: "bg-slate-100 text-slate-600",
+  Pending: "bg-slate-100 text-slate-600",
+  Due: "bg-orange-100 text-orange-800",
   New: "bg-slate-100 text-slate-700",
   Incomplete: "bg-amber-100 text-amber-800",
   "Ready for pricing": "bg-blue-100 text-blue-800",

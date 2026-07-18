@@ -171,3 +171,124 @@ export const RFQ_STATUSES = [
   "Lost",
   "Cancelled",
 ];
+
+export interface Customer {
+  id: number;
+  company_name: string;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  country: string | null;
+  city: string | null;
+  industry: string | null;
+  notes: string | null;
+  next_follow_up_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerStats {
+  rfq_count: number;
+  quote_count: number;
+  won_count: number;
+  lost_count: number;
+  average_margin_percentage: number | null;
+  typical_routes: string[];
+}
+
+export interface Booking {
+  id: number;
+  job_number: string | null;
+  quote_id: number | null;
+  customer_id: number | null;
+  shipper: string | null;
+  consignee: string | null;
+  notify_party: string | null;
+  origin: string | null;
+  destination: string | null;
+  cargo_details: string | null;
+  agreed_price: number | null;
+  estimated_cost: number | null;
+  estimated_margin: number | null;
+  currency: string;
+  assigned_to: string | null;
+  status: string;
+  etd: string | null;
+  eta: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShipmentDocument {
+  id: number;
+  booking_id: number;
+  document_type: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Issue {
+  id: number;
+  booking_id: number | null;
+  issue_type: string;
+  severity: string;
+  description: string | null;
+  responsible_party: string | null;
+  next_action: string | null;
+  due_date: string | null;
+  status: string;
+  resolution_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const BOOKING_STATUSES = [
+  "Booking confirmed",
+  "Awaiting documents",
+  "Pickup scheduled",
+  "Cargo received",
+  "Booked with carrier/agent",
+  "In transit",
+  "Arrived at destination",
+  "Under customs clearance",
+  "Out for delivery",
+  "Delivered",
+  "Closed",
+];
+
+export const DOCUMENT_STATUSES = [
+  "Required",
+  "Received",
+  "Missing",
+  "Expired",
+  "Needs correction",
+];
+
+export const ISSUE_TYPES = [
+  "Missing document",
+  "Wrong document",
+  "Rate changed",
+  "Carrier delay",
+  "Vessel rollover",
+  "Customs hold",
+  "Extra charges",
+  "Truck delay",
+  "Customer complaint",
+  "Agent not responding",
+  "Payment issue",
+  "Delivery issue",
+];
+
+export const QUOTE_STATUSES = [
+  "Draft",
+  "Pending approval",
+  "Approved",
+  "Sent",
+  "Follow-up due",
+  "Negotiating",
+  "Won",
+  "Lost",
+  "Expired",
+];

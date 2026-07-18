@@ -1,8 +1,8 @@
 """RFQ endpoints: parse a raw inquiry, list, fetch, and edit RFQs."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from pydantic import BaseModel
@@ -56,12 +56,32 @@ def parse_rfq(
 
 @router.get("", response_model=list[RFQOut])
 def list_rfqs(
+    response: Response,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-    limit: int = 100,
+    search: str | None = None,
+    status_filter: str | None = None,
+    limit: int = 50,
     offset: int = 0,
 ) -> list[RFQ]:
-    stmt = select(RFQ).order_by(RFQ.created_at.desc()).limit(limit).offset(offset)
+    stmt = select(RFQ)
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.where(
+            or_(
+                RFQ.reference.ilike(like),
+                RFQ.origin.ilike(like),
+                RFQ.destination.ilike(like),
+                RFQ.commodity.ilike(like),
+            )
+        )
+    if status_filter:
+        stmt = stmt.where(RFQ.status == status_filter)
+    total = db.execute(
+        select(func.count()).select_from(stmt.subquery())
+    ).scalar_one()
+    response.headers["X-Total-Count"] = str(total)
+    stmt = stmt.order_by(RFQ.created_at.desc()).limit(limit).offset(offset)
     return list(db.execute(stmt).scalars().all())
 
 

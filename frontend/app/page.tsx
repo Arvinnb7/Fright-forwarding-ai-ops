@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { DashboardMetrics } from "@/lib/types";
 import { StatCard } from "@/components/StatCard";
@@ -34,22 +35,38 @@ function Dashboard() {
       {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Today's RFQs" value={m?.rfqs_received ?? "—"} hint="Received today" />
-        <StatCard label="Quotes Sent" value={m?.quotes_sent ?? "—"} hint="Sent today" />
-        <StatCard label="Pending Rates" value={m?.pending_rates ?? "—"} hint="Awaiting partners" />
-        <StatCard label="Follow-ups Due" value={m?.follow_ups_due ?? "—"} hint="Need action" />
-        <StatCard label="Confirmed Bookings" value={m?.confirmed_bookings ?? "—"} hint="Today" />
-        <StatCard
-          label="Estimated Pipeline"
-          value={m ? money(m.estimated_pipeline) : "—"}
-          hint="Active opportunities"
-        />
-        <StatCard
-          label="Estimated Margin"
-          value={m ? money(m.estimated_margin) : "—"}
-          hint="Expected gross margin"
-        />
-        <StatCard label="Lost / Won today" value={m ? `${m.lost_today} / ${m.won_today}` : "—"} />
+        <Link href="/rfqs">
+          <StatCard label="Today's RFQs" value={m?.rfqs_received ?? "—"} hint="Received today" />
+        </Link>
+        <Link href="/quotes">
+          <StatCard label="Quotes Sent" value={m?.quotes_sent ?? "—"} hint="Sent today" />
+        </Link>
+        <Link href="/rfqs">
+          <StatCard label="Pending Rates" value={m?.pending_rates ?? "—"} hint="Awaiting partners" />
+        </Link>
+        <Link href="/follow-ups">
+          <StatCard label="Follow-ups Due" value={m?.follow_ups_due ?? "—"} hint="Need action" />
+        </Link>
+        <Link href="/bookings">
+          <StatCard label="Confirmed Bookings" value={m?.confirmed_bookings ?? "—"} hint="Today" />
+        </Link>
+        <Link href="/quotes">
+          <StatCard
+            label="Estimated Pipeline"
+            value={m ? money(m.estimated_pipeline) : "—"}
+            hint="Active opportunities"
+          />
+        </Link>
+        <Link href="/quotes">
+          <StatCard
+            label="Estimated Margin"
+            value={m ? money(m.estimated_margin) : "—"}
+            hint="Expected gross margin"
+          />
+        </Link>
+        <Link href="/quotes">
+          <StatCard label="Lost / Won today" value={m ? `${m.lost_today} / ${m.won_today}` : "—"} />
+        </Link>
       </div>
 
       <div className="mt-8">
