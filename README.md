@@ -46,6 +46,29 @@ Compose — no public server, no cloud required.
 The backend container automatically runs database migrations and creates the
 bootstrap admin account (from `ADMIN_EMAIL` / `ADMIN_PASSWORD`) on first start.
 
+## Verify the AI path (recommended after setup)
+
+Everything in CI runs against a deterministic fake LLM; this one command proves
+the **real** provider path (structured RFQ extraction, drafts, constrained rate
+analysis) with your API key. It costs a few cents:
+
+```bash
+docker compose exec backend python -m app.smoke_llm
+```
+
+## Demo dataset (optional)
+
+Load a story-driven dataset (customers, RFQs in every status, a paused quote
+approval, an in-transit booking with documents and an open issue, a follow-up
+due today) so every page has something to show:
+
+```bash
+docker compose exec backend python -m app.demo_data
+```
+
+Idempotent — running it twice does nothing. See `DEMO.md` for a scripted
+5-minute walkthrough.
+
 ## Project layout
 
 ```
@@ -62,6 +85,35 @@ See `backend/README.md` and `frontend/README.md` for per-service details.
 
 You can run services individually — see `backend/README.md` for the backend
 (needs a local Postgres + Redis) and `frontend/README.md` for the dashboard.
+
+## Testing & CI
+
+- `backend: pytest` — unit suite (no DB needed; integration auto-skips).
+- `RUN_INTEGRATION=1 pytest tests/integration` — full HTTP flow against a live
+  Postgres (self-bootstrapping: migrates + creates the admin).
+- GitHub Actions runs unit, integration (Postgres+Redis services), and the
+  production frontend build on every push.
+- Daily `pg_dump` backups are written to `storage/backups/` (worker keeps the
+  newest 14).
+
+## Path to SaaS
+
+This ships as a local-first single-operator tool by design, but the
+architecture was chosen so a multi-user cloud deployment is configuration, not
+a rewrite:
+
+- **PostgreSQL** (not SQLite) with Alembic migrations from day one.
+- **JWT auth** with a users table — adding users/roles extends the existing
+  model instead of introducing auth late.
+- **Stateless API + Celery workers** — horizontal scaling is a compose/K8s
+  concern, not a code change.
+- **Durable agent state in Postgres** (LangGraph checkpointer) — paused
+  approvals survive restarts and load-balanced instances.
+- Per-provider LLM abstraction — keys and models are environment config.
+
+The remaining productization items are tracked honestly: e-mail ingestion
+(Gmail/Outlook), role-based access, extraction-accuracy evaluation on real
+customer emails, and a cloud deployment guide.
 
 ## Safety & control rules
 
