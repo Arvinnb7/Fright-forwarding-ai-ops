@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.enums import RFQStatus
 from app.models.rfq import RFQ
 from app.schemas.rfq import RFQExtraction
-from app.services.reference import rfq_reference
+from app.services.reference import rfq_reference, sequence_for
 
 
 def _status_from_extraction(extraction: RFQExtraction) -> RFQStatus:
@@ -59,7 +59,7 @@ def create_rfq_from_extraction(
     )
     db.add(rfq)
     db.flush()  # assign id
-    rfq.reference = rfq_reference(rfq.id)
+    rfq.reference = rfq_reference(sequence_for(db, RFQ, rfq.org_id, rfq.id))
     db.commit()
     db.refresh(rfq)
     return rfq

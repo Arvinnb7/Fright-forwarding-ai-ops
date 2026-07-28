@@ -9,13 +9,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, enum_column
+from app.core.tenancy import TenantMixin
 from app.models.enums import IssueSeverity, IssueStatus
 
 if TYPE_CHECKING:
     from app.models.booking import Booking
 
 
-class Issue(Base, TimestampMixin):
+class Issue(Base, TenantMixin, TimestampMixin):
     __tablename__ = "issues"
 
     id: Mapped[int] = mapped_column(primary_key=True)

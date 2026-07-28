@@ -9,6 +9,7 @@ from app.models.quote import Quote
 from app.models.rfq import RFQ
 from app.schemas.booking import BookingCreateFromQuote
 from app.services.reference import job_number as make_job_number
+from app.services.reference import sequence_for
 
 
 def _cargo_details_from_rfq(rfq: RFQ | None) -> str | None:
@@ -64,7 +65,9 @@ def create_booking_from_quote(db: Session, payload: BookingCreateFromQuote) -> B
     )
     db.add(booking)
     db.flush()
-    booking.job_number = make_job_number(booking.id)
+    booking.job_number = make_job_number(
+        sequence_for(db, Booking, booking.org_id, booking.id)
+    )
 
     quote.status = QuoteStatus.WON
     if rfq is not None:

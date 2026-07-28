@@ -22,6 +22,7 @@ from app.models.quote import Quote
 from app.models.rfq import RFQ
 from app.schemas.quote import QuoteApprove, QuotePricingReview, QuoteStart
 from app.services.context import rfq_context
+from app.services.reference import sequence_for
 from app.services.reference import quote_number as make_quote_number
 
 log = get_logger("service.quote")
@@ -70,7 +71,9 @@ def start_quote(
     )
     db.add(quote)
     db.flush()
-    quote.quote_number = make_quote_number(quote.id)
+    quote.quote_number = make_quote_number(
+        sequence_for(db, Quote, quote.org_id, quote.id)
+    )
     db.commit()
 
     graph = get_quote_graph()

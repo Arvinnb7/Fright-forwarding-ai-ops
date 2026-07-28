@@ -40,12 +40,26 @@ def fake_llm() -> FakeLLM:
 
 @pytest.fixture
 def db_session():
+    """In-memory DB with one organization active.
+
+    Business records are tenant-scoped, so the session is bound to an
+    organization for the duration of the test — mirroring what the auth
+    dependency does per request in the app.
+    """
+    import app.models  # noqa: F401  (registers tables + installs tenant guards)
+    from app.core.tenancy import organization_scope
+    from app.models.organization import Organization
+
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     Base.metadata.create_all(engine)
     TestSession = sessionmaker(bind=engine, expire_on_commit=False, future=True)
     session = TestSession()
+    org = Organization(name="Test Org", slug="test-org")
+    session.add(org)
+    session.commit()
     try:
-        yield session
+        with organization_scope(org.id, session):
+            yield session
     finally:
         session.close()
         Base.metadata.drop_all(engine)

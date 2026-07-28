@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { login } from "@/lib/api";
 import { Button, ErrorText } from "@/components/ui";
 
@@ -53,6 +54,12 @@ export default function LoginPage() {
         <Button type="submit" disabled={loading}>
           {loading ? "Signing in…" : "Sign in"}
         </Button>
+        <p className="text-center text-xs text-slate-500">
+          New company?{" "}
+          <Link className="text-brand-600 hover:underline" href="/signup">
+            Create a workspace
+          </Link>
+        </p>
       </form>
     </div>
   );

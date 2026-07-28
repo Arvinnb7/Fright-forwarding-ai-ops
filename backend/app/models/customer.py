@@ -9,13 +9,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin
+from app.core.tenancy import TenantMixin
 
 if TYPE_CHECKING:
     from app.models.quote import Quote
     from app.models.rfq import RFQ
 
 
-class Customer(Base, TimestampMixin):
+class Customer(Base, TenantMixin, TimestampMixin):
     __tablename__ = "customers"
 
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -9,7 +9,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/signup") {
     return <>{children}</>;
   }
 

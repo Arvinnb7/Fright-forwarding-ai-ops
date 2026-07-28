@@ -4,12 +4,13 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Boolean, Date, Float, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, Date, Float, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, enum_column as _enum
+from app.core.tenancy import TenantMixin
 from app.models.enums import RFQStatus, ShipmentType, TransportMode, Urgency
 
 # JSONB on PostgreSQL, plain JSON elsewhere (e.g. SQLite in tests).
@@ -21,11 +22,13 @@ if TYPE_CHECKING:
     from app.models.quote import Quote
 
 
-class RFQ(Base, TimestampMixin):
+class RFQ(Base, TenantMixin, TimestampMixin):
     __tablename__ = "rfqs"
+    # Reference numbers restart per organization, so uniqueness is scoped.
+    __table_args__ = (UniqueConstraint("org_id", "reference", name="uq_rfqs_org_reference"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    reference: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    reference: Mapped[str | None] = mapped_column(String(64), index=True)
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"))
 
     raw_message: Mapped[str | None] = mapped_column(Text)

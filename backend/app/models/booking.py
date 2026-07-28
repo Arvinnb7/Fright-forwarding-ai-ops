@@ -4,11 +4,12 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, Float, ForeignKey, String, Text
+from sqlalchemy import Date, Float, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, enum_column
+from app.core.tenancy import TenantMixin
 from app.models.enums import BookingStatus
 
 if TYPE_CHECKING:
@@ -17,11 +18,13 @@ if TYPE_CHECKING:
     from app.models.quote import Quote
 
 
-class Booking(Base, TimestampMixin):
+class Booking(Base, TenantMixin, TimestampMixin):
     __tablename__ = "bookings"
+    # Reference numbers restart per organization, so uniqueness is scoped.
+    __table_args__ = (UniqueConstraint("org_id", "job_number", name="uq_bookings_org_job"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    job_number: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    job_number: Mapped[str | None] = mapped_column(String(64), index=True)
     quote_id: Mapped[int | None] = mapped_column(ForeignKey("quotes.id"), index=True)
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), index=True)
 

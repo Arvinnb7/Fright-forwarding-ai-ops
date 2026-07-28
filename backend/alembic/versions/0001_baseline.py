@@ -1,8 +1,13 @@
 """Baseline schema — create all tables from the ORM metadata.
 
-The initial migration is metadata-driven so the schema is guaranteed to match
-the models. Subsequent migrations are produced with `alembic revision
---autogenerate` and contain explicit operations.
+The initial migration is metadata-driven so the schema always matches the
+models on a fresh install.
+
+⚠️ Consequence for every later revision: a *fresh* database arrives already
+containing tables and columns that later revisions introduce, while an
+*existing* database does not. Later migrations must therefore be written
+defensively using `app/core/schema_guards.py` (`has_table`, `has_column`, …) so
+both paths succeed. See `0002_multi_tenancy.py` for the pattern.
 
 Revision ID: 0001_baseline
 Revises:

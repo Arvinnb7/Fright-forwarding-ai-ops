@@ -69,9 +69,23 @@ def _extraction(**kwargs: Any) -> RFQExtraction:
 
 
 def seed() -> None:
+    """Seed the bootstrap organization with a demo story.
+
+    Multi-tenant: everything is created inside the default organization's scope
+    (the one `app.initial_data` creates), never across tenants.
+    """
+    from app.core.tenancy import organization_scope
+    from app.initial_data import ensure_admin
+
     db = SessionLocal()
     llm = _SeedLLM()
     set_llm(llm)
+    org = ensure_admin(db)  # idempotent; returns the bootstrap organization
+    with organization_scope(org.id, db):
+        _seed_within_org(db, llm)
+
+
+def _seed_within_org(db, llm) -> None:
     try:
         exists = db.execute(
             select(Customer).where(Customer.company_name == MARKER_CUSTOMER)

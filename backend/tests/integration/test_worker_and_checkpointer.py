@@ -1,6 +1,7 @@
 """Celery task logic + durable LangGraph checkpointer against live Postgres."""
 from __future__ import annotations
 
+import uuid
 from datetime import date, timedelta
 
 from tests.integration.conftest import requires_integration
@@ -9,29 +10,38 @@ pytestmark = requires_integration
 
 
 def test_refresh_due_follow_ups(integration_env):
+    """The task iterates tenants and scopes each pass to one organization."""
     from app.core.db import SessionLocal
+    from app.core.tenancy import organization_scope
     from app.models.enums import FollowUpStatus
     from app.models.follow_up import FollowUp
+    from app.models.organization import Organization
     from app.models.quote import Quote
     from app.workers.tasks import refresh_due_follow_ups
 
     db = SessionLocal()
-    quote = Quote(status="Draft")
-    db.add(quote)
-    db.flush()
-    due = FollowUp(
-        quote_id=quote.id,
-        due_date=date.today() - timedelta(days=1),
-        status=FollowUpStatus.PENDING,
-    )
-    future = FollowUp(
-        quote_id=quote.id,
-        due_date=date.today() + timedelta(days=5),
-        status=FollowUpStatus.PENDING,
-    )
-    db.add_all([due, future])
+    # Unique per run: the suite may be executed repeatedly against the same DB.
+    org = Organization(name="Worker Test Org", slug=f"worker-test-{uuid.uuid4().hex[:12]}")
+    db.add(org)
     db.commit()
-    due_id, future_id = due.id, future.id
+
+    with organization_scope(org.id, db):
+        quote = Quote(status="Draft")
+        db.add(quote)
+        db.flush()
+        due = FollowUp(
+            quote_id=quote.id,
+            due_date=date.today() - timedelta(days=1),
+            status=FollowUpStatus.PENDING,
+        )
+        future = FollowUp(
+            quote_id=quote.id,
+            due_date=date.today() + timedelta(days=5),
+            status=FollowUpStatus.PENDING,
+        )
+        db.add_all([due, future])
+        db.commit()
+        due_id, future_id = due.id, future.id
     db.close()
 
     processed = refresh_due_follow_ups()
@@ -39,8 +49,9 @@ def test_refresh_due_follow_ups(integration_env):
 
     db = SessionLocal()
     try:
-        assert db.get(FollowUp, due_id).status == FollowUpStatus.DUE
-        assert db.get(FollowUp, future_id).status == FollowUpStatus.PENDING
+        with organization_scope(org.id, db):
+            assert db.get(FollowUp, due_id).status == FollowUpStatus.DUE
+            assert db.get(FollowUp, future_id).status == FollowUpStatus.PENDING
     finally:
         db.close()
 

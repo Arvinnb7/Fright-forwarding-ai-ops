@@ -9,13 +9,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, enum_column
+from app.core.tenancy import TenantMixin
 from app.models.enums import PartnerType
 
 if TYPE_CHECKING:
     from app.models.rfq import RFQ
 
 
-class PartnerRate(Base, TimestampMixin):
+class PartnerRate(Base, TenantMixin, TimestampMixin):
     __tablename__ = "partner_rates"
 
     id: Mapped[int] = mapped_column(primary_key=True)
