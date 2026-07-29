@@ -26,6 +26,7 @@ from app.agents.email_classifier import run_email_classifier
 from app.agents.rfq_parser import run_rfq_parser
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.tenancy import without_actor
 from app.email import EmailError, FetchedEmail, get_email_client
 from app.llm import get_llm
 from app.llm.base import LLMClient
@@ -302,7 +303,18 @@ def process_email(db: Session, email: FetchedEmail, llm: LLMClient) -> EmailMess
 
 
 def ingest_mailbox(db: Session, config: MailboxConfig, llm: LLMClient | None = None) -> IngestResult:
-    """Poll one organization's mailbox and process everything new."""
+    """Poll one organization's mailbox and process everything new.
+
+    Runs as the system even when a person triggered it from the UI: an enquiry
+    that arrived by email is not the work of whoever pressed "check mail". It
+    belongs in the unassigned pool for the team to pick up, and the audit trail
+    should not credit a click as authorship.
+    """
+    with without_actor(db):
+        return _ingest(db, config, llm)
+
+
+def _ingest(db: Session, config: MailboxConfig, llm: LLMClient | None) -> IngestResult:
     result = IngestResult()
     llm = llm or get_llm()
     client = get_email_client(config)

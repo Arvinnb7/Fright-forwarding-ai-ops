@@ -21,6 +21,9 @@ function Inbox() {
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  // "Unassigned" is the one that matters commercially: it is where enquiries
+  // the mailbox brought in overnight sit until somebody picks them up.
+  const [scope, setScope] = useState<"team" | "mine" | "unassigned">("team");
 
   function load() {
     const params = new URLSearchParams({
@@ -29,6 +32,8 @@ function Inbox() {
     });
     if (search) params.set("search", search);
     if (statusFilter) params.set("status_filter", statusFilter);
+    if (scope === "mine") params.set("mine", "true");
+    if (scope === "unassigned") params.set("unassigned", "true");
     fetch(`${API_BASE_URL}/api/rfqs?${params}`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
@@ -38,7 +43,7 @@ function Inbox() {
       })
       .catch(() => {});
   }
-  useEffect(load, [search, statusFilter, page]);
+  useEffect(load, [search, statusFilter, page, scope]);
 
   async function exportCsv() {
     const res = await fetch(`${API_BASE_URL}/api/exports/rfqs.csv`, {
@@ -96,7 +101,22 @@ function Inbox() {
       <Panel
         title={`RFQs (${total})`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <div className="flex overflow-hidden rounded-md border border-slate-300">
+              {(["team", "mine", "unassigned"] as const).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => { setPage(0); setScope(option); }}
+                  className={`px-3 py-1 text-sm ${
+                    scope === option
+                      ? "bg-brand-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {option === "team" ? "Team" : option === "mine" ? "My work" : "Unassigned"}
+                </button>
+              ))}
+            </div>
             <input
               className="rounded-md border border-slate-300 px-2 py-1 text-sm"
               placeholder="Search route/commodity…"
@@ -116,7 +136,13 @@ function Inbox() {
         }
       >
         {rfqs.length === 0 ? (
-          <p className="text-sm text-slate-500">No RFQs match.</p>
+          <p className="text-sm text-slate-500">
+            {scope === "unassigned"
+              ? "Nothing waiting to be picked up."
+              : scope === "mine"
+                ? "Nothing assigned to you."
+                : "No RFQs match."}
+          </p>
         ) : (
           <table className="w-full text-sm">
             <thead>

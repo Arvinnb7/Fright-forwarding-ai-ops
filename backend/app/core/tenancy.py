@@ -31,6 +31,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column, with_loader_criteria
 
 ORG_KEY = "org_id"
 BYPASS_KEY = "bypass_tenant_filter"
+ACTOR_KEY = "actor"
 
 # Fallback for code paths that are not inside a web request.
 _current_org_id: ContextVar[int | None] = ContextVar("current_org_id", default=None)
@@ -47,6 +48,72 @@ class TenantMixin:
             index=True,
             nullable=False,
         )
+
+
+class OwnedMixin:
+    """Adds `owner_id`, stamped automatically with whoever created the record.
+
+    Nullable on purpose: records created by the system — an RFQ built from an
+    ingested email at 3am — genuinely have no human author, and inventing one
+    would make the audit trail lie.
+    """
+
+    @orm.declared_attr
+    def owner_id(cls) -> Mapped[int | None]:  # noqa: N805
+        return mapped_column(
+            ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+        )
+
+
+# ── Who is acting ────────────────────────────────────────────
+
+
+def bind_session_to_user(session: Session, user_id: int, email: str | None = None) -> None:
+    """Record the acting user on this request's session.
+
+    Kept beside the tenant binding, and for the same reason: services and ORM
+    listeners need to know who is acting without every caller threading a user
+    through its signature.
+    """
+    session.info[ACTOR_KEY] = {"id": user_id, "email": email}
+
+
+def get_current_actor(session: Session | None = None) -> dict | None:
+    """The acting user, or None for background work with no human behind it."""
+    if session is not None:
+        return session.info.get(ACTOR_KEY)
+    return None
+
+
+@contextmanager
+def acting_as(session: Session, user_id: int, email: str | None = None) -> Iterator[None]:
+    """Run a block attributed to a specific user (tests, scripts)."""
+    previous = session.info.get(ACTOR_KEY)
+    bind_session_to_user(session, user_id, email)
+    try:
+        yield
+    finally:
+        if previous is None:
+            session.info.pop(ACTOR_KEY, None)
+        else:
+            session.info[ACTOR_KEY] = previous
+
+
+@contextmanager
+def without_actor(session: Session) -> Iterator[None]:
+    """Run a block as the system, even inside a user's request.
+
+    For work the system does on its own account. Pressing "check mail" does not
+    make the resulting enquiries *your* work: they belong in the unassigned pool
+    for the team to pick up, and the audit trail should say the system created
+    them, not the person who happened to click.
+    """
+    previous = session.info.pop(ACTOR_KEY, None)
+    try:
+        yield
+    finally:
+        if previous is not None:
+            session.info[ACTOR_KEY] = previous
 
 
 # ── Selecting the active organization ────────────────────────
@@ -164,6 +231,7 @@ def install_tenant_guards() -> None:
     @event.listens_for(Session, "before_flush")
     def _stamp_org_id(session: Session, _flush_context, _instances) -> None:  # type: ignore[no-untyped-def]
         org_id = get_current_org_id(session)
+        actor = get_current_actor(session)
         for obj in session.new:
             if isinstance(obj, TenantMixin) and getattr(obj, "org_id", None) is None:
                 if org_id is None:
@@ -173,3 +241,11 @@ def install_tenant_guards() -> None:
                         "operation in organization_scope() (worker/script)."
                     )
                 obj.org_id = org_id
+            # Ownership, unlike the tenant, is optional: work created by the
+            # email poller has no author, and that is recorded as such.
+            if (
+                isinstance(obj, OwnedMixin)
+                and getattr(obj, "owner_id", None) is None
+                and actor is not None
+            ):
+                obj.owner_id = actor["id"]

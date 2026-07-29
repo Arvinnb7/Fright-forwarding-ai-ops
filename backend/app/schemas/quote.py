@@ -60,5 +60,6 @@ class QuoteOut(BaseModel):
     sent_at: datetime | None
     next_follow_up_date: date | None
     lost_reason: str | None
+    owner_id: int | None
     created_at: datetime
     updated_at: datetime

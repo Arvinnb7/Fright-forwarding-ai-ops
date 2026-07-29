@@ -100,6 +100,12 @@ list, because that is the part they can act on this afternoon.
 If someone asks "how do I know it worked?": measure the first week before
 changing anything, then compare. The CSV export is the before/after.
 
+**8b. Team (45s).** Add a viewer and try to change something as them — every
+write is refused, because the rule lives on the router rather than on each
+endpoint. Then show **Activity**: who approved which price, what it was before,
+and what it became. That is usually the moment a buyer stops asking whether the
+tool is safe to give their staff.
+
 **9. Reports (30s).** Generate the daily management summary — accurate numbers
 from the DB, narrated by the AI, now leading with the trailing-week response
 rate — copy it or download the PDF. CSV exports are on the RFQ / Quotes /

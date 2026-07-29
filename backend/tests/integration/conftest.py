@@ -143,6 +143,34 @@ def client(integration_env):
     set_llm(None)
 
 
+@pytest.fixture
+def mailbox_factory():
+    """Install an in-memory mail transport for the duration of one test.
+
+    Shared so any suite can exercise the "an email became work overnight" path
+    without a mail server.
+    """
+    from app.email import set_email_client_factory
+
+    from tests.integration.test_email_ingest import FakeMailbox, build_email
+
+    boxes: list[FakeMailbox] = []
+
+    def factory() -> FakeMailbox:
+        box = FakeMailbox()
+
+        def add_rfq_email(subject: str = "[RFQ] Rate request", body: str = "Shanghai to Jebel Ali 40HC.") -> None:
+            box.add(build_email(subject=subject, body=body))
+
+        box.add_rfq_email = add_rfq_email  # type: ignore[attr-defined]
+        boxes.append(box)
+        set_email_client_factory(box.client)
+        return box
+
+    yield factory
+    set_email_client_factory(None)
+
+
 @pytest.fixture(scope="session")
 def auth_headers(client):
     from app.core.config import settings

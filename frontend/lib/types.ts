@@ -24,6 +24,9 @@ export interface RFQ {
   recommended_next_action: string | null;
   urgency: string;
   status: string;
+  owner_id: number | null;
+  received_at: string | null;
+  first_quoted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -165,6 +168,7 @@ export interface Quote {
   sent_at: string | null;
   next_follow_up_date: string | null;
   lost_reason: string | null;
+  owner_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -273,6 +277,7 @@ export interface Booking {
   status: string;
   etd: string | null;
   eta: string | null;
+  owner_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -289,6 +294,51 @@ export interface ShipmentDocument {
   has_file: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type UserRole = "admin" | "coordinator" | "viewer";
+
+export interface Member {
+  id: number;
+  email: string;
+  full_name: string | null;
+  role: UserRole;
+  is_active: boolean;
+  organization_id: number;
+  created_at: string;
+}
+
+export const USER_ROLES: { value: UserRole; label: string; description: string }[] = [
+  {
+    value: "admin",
+    label: "Administrator",
+    description: "Everything, including members and the mailbox connection.",
+  },
+  {
+    value: "coordinator",
+    label: "Coordinator",
+    description: "Day-to-day work: may price, approve and send.",
+  },
+  {
+    value: "viewer",
+    label: "Viewer",
+    description: "Read-only — management and finance visibility.",
+  },
+];
+
+export interface AuditEvent {
+  id: number;
+  user_id: number | null;
+  actor: string;
+  entity_type: string;
+  entity_id: number;
+  entity_ref: string | null;
+  action: "Created" | "Updated" | "Deleted";
+  field: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  summary: string;
+  created_at: string;
 }
 
 export interface MailboxConfig {

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, enum_column
-from app.core.tenancy import TenantMixin
+from app.core.tenancy import OwnedMixin, TenantMixin
 from app.models.enums import QuoteStatus
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from app.models.rfq import RFQ
 
 
-class Quote(Base, TenantMixin, TimestampMixin):
+class Quote(Base, TenantMixin, OwnedMixin, TimestampMixin):
     __tablename__ = "quotes"
     # Reference numbers restart per organization, so uniqueness is scoped.
     __table_args__ = (UniqueConstraint("org_id", "quote_number", name="uq_quotes_org_number"),)

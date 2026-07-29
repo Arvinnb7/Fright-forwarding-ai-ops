@@ -178,6 +178,8 @@ class RFQUpdate(BaseModel):
     requested_charges: list[str] | None = None
     urgency: Urgency | None = None
     status: RFQStatus | None = None
+    # Assignment. Explicitly nullable so work can be handed back to the pool.
+    owner_id: int | None = None
 
 
 class RFQOut(BaseModel):
@@ -215,5 +217,8 @@ class RFQOut(BaseModel):
     urgency: Urgency
     urgency_score: float | None
     status: RFQStatus
+    owner_id: int | None
+    received_at: datetime | None
+    first_quoted_at: datetime | None
     created_at: datetime
     updated_at: datetime

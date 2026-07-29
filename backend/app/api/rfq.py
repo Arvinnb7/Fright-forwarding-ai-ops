@@ -58,13 +58,21 @@ def parse_rfq(
 def list_rfqs(
     response: Response,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     search: str | None = None,
     status_filter: str | None = None,
+    mine: bool = False,
+    unassigned: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[RFQ]:
     stmt = select(RFQ)
+    if mine:
+        stmt = stmt.where(RFQ.owner_id == current_user.id)
+    if unassigned:
+        # Work nobody has picked up — including everything the email poller
+        # created overnight, which is precisely what goes unanswered.
+        stmt = stmt.where(RFQ.owner_id.is_(None))
     if search:
         like = f"%{search}%"
         stmt = stmt.where(

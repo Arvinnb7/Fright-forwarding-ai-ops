@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, enum_column
-from app.core.tenancy import TenantMixin
+from app.core.tenancy import OwnedMixin, TenantMixin
 from app.models.enums import BookingStatus
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from app.models.quote import Quote
 
 
-class Booking(Base, TenantMixin, TimestampMixin):
+class Booking(Base, TenantMixin, OwnedMixin, TimestampMixin):
     __tablename__ = "bookings"
     # Reference numbers restart per organization, so uniqueness is scoped.
     __table_args__ = (UniqueConstraint("org_id", "job_number", name="uq_bookings_org_job"),)

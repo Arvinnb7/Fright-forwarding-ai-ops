@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import {
+  AuditEvent,
   Customer,
   LaneRateMemory,
+  Member,
   PartnerRate,
   RateAnalysis,
   RFQ,
@@ -48,6 +50,9 @@ function Detail({ id }: { id: number }) {
   // rate memory (prior rates on this lane)
   const [memory, setMemory] = useState<LaneRateMemory | null>(null);
   const [reusing, setReusing] = useState<number | null>(null);
+  // team + trail
+  const [members, setMembers] = useState<Member[]>([]);
+  const [activity, setActivity] = useState<AuditEvent[]>([]);
 
   function loadRfq() {
     api.get<RFQ>(`/api/rfqs/${id}`).then((r) => {
@@ -67,6 +72,12 @@ function Detail({ id }: { id: number }) {
   function loadRates() {
     api.get<PartnerRate[]>(`/api/rfqs/${id}/rates`).then(setRates).catch(() => {});
   }
+  function loadActivity() {
+    api
+      .get<AuditEvent[]>(`/api/audit?entity_type=RFQ&entity_id=${id}&limit=15`)
+      .then(setActivity)
+      .catch(() => setActivity([]));
+  }
   function loadMemory() {
     api
       .get<LaneRateMemory>(`/api/rfqs/${id}/rate-suggestions`)
@@ -78,8 +89,18 @@ function Detail({ id }: { id: number }) {
     loadRates();
     loadMemory();
     api.get<Customer[]>("/api/customers").then(setCustomers).catch(() => {});
+    api.get<Member[]>("/api/auth/users").then(setMembers).catch(() => {});
+    loadActivity();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function assignOwner(ownerId: string) {
+    await api.patch(`/api/rfqs/${id}`, {
+      owner_id: ownerId ? Number(ownerId) : null,
+    });
+    loadRfq();
+    loadActivity();
+  }
 
   async function assignCustomer(customerId: string) {
     await api.patch(`/api/rfqs/${id}`, {
@@ -195,7 +216,7 @@ function Detail({ id }: { id: number }) {
             {rfq.origin ?? "?"} → {rfq.destination ?? "?"}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             className="rounded-md border border-slate-300 px-2 py-1 text-sm"
             value={rfq.customer_id ?? ""}
@@ -204,6 +225,17 @@ function Detail({ id }: { id: number }) {
             <option value="">— No customer —</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>{c.company_name}</option>
+            ))}
+          </select>
+          <select
+            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+            value={rfq.owner_id ?? ""}
+            onChange={(e) => assignOwner(e.target.value)}
+            title="Who is handling this enquiry"
+          >
+            <option value="">— Unassigned —</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
             ))}
           </select>
           <StatusBadge value={rfq.status} />
@@ -448,6 +480,21 @@ function Detail({ id }: { id: number }) {
           </p>
         </div>
       </Panel>
+
+      {activity.length > 0 && (
+        <Panel title="Activity">
+          <ul className="space-y-2 text-sm">
+            {activity.map((event) => (
+              <li key={event.id} className="flex justify-between gap-4">
+                <span className="text-slate-700">{event.summary}</span>
+                <span className="shrink-0 text-xs text-slate-400">
+                  {event.actor} · {new Date(event.created_at).toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
     </div>
   );
 }

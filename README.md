@@ -90,6 +90,35 @@ every draft still needs human approval. Credentials are encrypted at rest
 Polling runs in the Celery worker every `EMAIL_POLL_INTERVAL_MINUTES` (default
 3); **Check now** on the inbox page polls immediately.
 
+## Team, roles and the audit trail
+
+Three roles, enforced rather than advisory:
+
+| Role | Can |
+|---|---|
+| **Administrator** | Everything, including members and the mailbox connection |
+| **Coordinator** | The day-to-day desk: price, approve, send, operate shipments |
+| **Viewer** | Read-only — management and finance visibility |
+
+The read-only rule is applied **once, on the API router**, not endpoint by
+endpoint: a permission you have to remember to add is one that will eventually
+be missed, and every endpoint written later would start out unguarded. A viewer
+is refused every unsafe method by default; an endpoint has to be deliberately
+exempted to behave otherwise. Deactivating a member invalidates their existing
+token immediately, not at next login.
+
+**Ownership.** RFQs, quotes and bookings record who created them, so the RFQ
+list offers *Team / My work / Unassigned*. Work created by the mailbox poller is
+deliberately left unassigned — pressing "check mail" does not make an enquiry
+your work, and it belongs in the pool for the team to pick up.
+
+**Audit trail.** Every change to a price, a status, or a permission is recorded
+automatically by the ORM — who, when, from what to what — so nothing depends on
+a service remembering to log. The actor's email is stored on the row, so the
+record stays readable after that person has left and their account is removed.
+Deliberately not recorded: ordinary field edits, because a log of everything is
+read by nobody.
+
 ## Rate memory (Rates &amp; Lanes)
 
 Answering in thirty minutes is impossible if the price has to be requested from
@@ -202,11 +231,12 @@ hosted multi-customer deployment is in place rather than deferred:
   approvals survive restarts and load-balanced instances.
 - **Secrets encrypted at rest** (mailbox credentials, Fernet) with a rotatable
   key.
+- **Roles enforced at the router** and an ORM-level audit trail, so neither
+  depends on a developer remembering to apply them per endpoint.
 - Per-provider LLM abstraction — keys and models are environment config.
 
-Still open, tracked honestly: role enforcement across endpoints and an audit
-trail, a published extraction-accuracy number measured on real customer emails,
-and a production deployment guide with TLS.
+Still open, tracked honestly: a published extraction-accuracy number measured
+on real customer emails, and a production deployment guide with TLS.
 
 ## Safety & control rules
 

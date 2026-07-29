@@ -50,6 +50,7 @@ class BookingOut(BaseModel):
     status: BookingStatus
     etd: date | None
     eta: date | None
+    owner_id: int | None
     created_at: datetime
     updated_at: datetime
 

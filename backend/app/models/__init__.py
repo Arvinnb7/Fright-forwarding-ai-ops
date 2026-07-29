@@ -1,6 +1,8 @@
 """ORM models. Importing this package registers every table on `Base.metadata`
-and installs the multi-tenant query guards."""
+and installs the multi-tenant query guards and the audit recorder."""
+from app.core.audit import install_audit_trail
 from app.core.tenancy import install_tenant_guards
+from app.models.audit import AuditAction, AuditEvent
 from app.models.booking import Booking
 from app.models.customer import Customer
 from app.models.document import Document
@@ -15,10 +17,15 @@ from app.models.rfq import RFQ
 from app.models.user import User, UserRole
 
 # Registered once, at import time: every ORM SELECT is filtered by the active
-# organization and every INSERT is stamped with it. See app/core/tenancy.py.
+# organization and every INSERT is stamped with it (app/core/tenancy.py), and
+# every change to a pricing, status or permission field is recorded
+# (app/core/audit.py). Both are ORM-level so no code path can bypass them.
 install_tenant_guards()
+install_audit_trail()
 
 __all__ = [
+    "AuditAction",
+    "AuditEvent",
     "Booking",
     "Customer",
     "Document",

@@ -61,11 +61,15 @@ def convert_quote(
 @router.get("", response_model=list[BookingOut])
 def list_bookings(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    mine: bool = False,
     limit: int = 100,
     offset: int = 0,
 ) -> list[Booking]:
-    stmt = select(Booking).order_by(Booking.created_at.desc()).limit(limit).offset(offset)
+    stmt = select(Booking)
+    if mine:
+        stmt = stmt.where(Booking.owner_id == current_user.id)
+    stmt = stmt.order_by(Booking.created_at.desc()).limit(limit).offset(offset)
     return list(db.execute(stmt).scalars().all())
 
 

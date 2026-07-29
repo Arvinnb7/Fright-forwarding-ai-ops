@@ -21,7 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, enum_column as _enum
-from app.core.tenancy import TenantMixin
+from app.core.tenancy import OwnedMixin, TenantMixin
 from app.models.enums import RFQStatus, ShipmentType, TransportMode, Urgency
 
 # JSONB on PostgreSQL, plain JSON elsewhere (e.g. SQLite in tests).
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from app.models.quote import Quote
 
 
-class RFQ(Base, TenantMixin, TimestampMixin):
+class RFQ(Base, TenantMixin, OwnedMixin, TimestampMixin):
     __tablename__ = "rfqs"
     # Reference numbers restart per organization, so uniqueness is scoped.
     __table_args__ = (UniqueConstraint("org_id", "reference", name="uq_rfqs_org_reference"),)

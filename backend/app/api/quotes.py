@@ -6,7 +6,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_pricing_approval
 from app.llm import get_llm
 from app.llm.base import LLMError
 from app.models.quote import Quote
@@ -27,7 +27,7 @@ router = APIRouter()
 def start(
     payload: QuoteStart,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_pricing_approval),
 ) -> QuotePricingReview:
     """Build a quote draft and pause for human pricing approval.
 
@@ -48,7 +48,7 @@ def approve(
     quote_id: int,
     payload: QuoteApprove,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_pricing_approval),
 ) -> Quote:
     """Approve (and optionally mark sent) or reject a pending quote."""
     quote = db.get(Quote, quote_id)
@@ -64,13 +64,16 @@ def approve(
 def list_quotes(
     response: Response,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     search: str | None = None,
     status_filter: str | None = None,
+    mine: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Quote]:
     stmt = select(Quote)
+    if mine:
+        stmt = stmt.where(Quote.owner_id == current_user.id)
     if search:
         like = f"%{search}%"
         stmt = stmt.where(or_(Quote.quote_number.ilike(like), Quote.lost_reason.ilike(like)))
