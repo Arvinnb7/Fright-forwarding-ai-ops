@@ -6,7 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import PartnerType
+from app.models.enums import PartnerType, TransportMode
+from app.models.partner_rate import RateSource
 
 
 class PartnerRateCreate(BaseModel):
@@ -43,9 +44,14 @@ class PartnerRateOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    rfq_id: int
+    rfq_id: int | None  # tariff rates exist without an enquiry
     partner_name: str
     partner_type: PartnerType | None
+    source: RateSource
+    origin: str | None
+    destination: str | None
+    transport_mode: TransportMode | None
+    container_type: str | None
     cost_amount: float | None
     currency: str
     included_charges: str | None
@@ -57,6 +63,63 @@ class PartnerRateOut(BaseModel):
     risk_notes: str | None
     reliability_score: float | None
     created_at: datetime
+
+
+# ── Rate memory (lane intelligence) ──────────────────────────
+
+
+class RateSuggestionOut(BaseModel):
+    rate_id: int
+    # "exact" = same lane; "route" = same origin/destination but different mode
+    # or equipment. Kept separate so a 20GP price is never read as a 40HC one.
+    match: str
+    partner_name: str
+    partner_type: str | None
+    source: str
+    lane: str
+    cost_amount: float | None
+    currency: str
+    transit_time: str | None
+    age_days: int
+    validity_date: date | None
+    is_expired: bool
+    notes: str | None
+    rfq_id: int | None
+    rfq_reference: str | None
+    quoted_selling_price: float | None
+    outcome: str | None
+
+
+class LaneRateMemory(BaseModel):
+    lane: str
+    lane_known: bool
+    exact_matches: int
+    route_matches: int
+    median_cost: float | None
+    suggestions: list[RateSuggestionOut]
+
+
+class LaneCoverage(BaseModel):
+    lane_key: str
+    lane: str
+    rate_count: int
+    live_rate_count: int
+    partner_count: int
+    median_cost: float | None
+    newest_rate_days: int | None
+    enquiries: int
+
+
+class TariffRowError(BaseModel):
+    line: int
+    reason: str
+
+
+class TariffImportResult(BaseModel):
+    created: int
+    skipped_duplicates: int
+    rejected: int
+    errors: list[TariffRowError]
 
 
 # ── Rate analysis agent contract ─────────────────────────────

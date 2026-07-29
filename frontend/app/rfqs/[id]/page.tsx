@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import {
   Customer,
+  LaneRateMemory,
   PartnerRate,
   RateAnalysis,
   RFQ,
@@ -44,6 +45,9 @@ function Detail({ id }: { id: number }) {
   // quote
   const [markup, setMarkup] = useState("20");
   const [selectedRate, setSelectedRate] = useState<number | "">("");
+  // rate memory (prior rates on this lane)
+  const [memory, setMemory] = useState<LaneRateMemory | null>(null);
+  const [reusing, setReusing] = useState<number | null>(null);
 
   function loadRfq() {
     api.get<RFQ>(`/api/rfqs/${id}`).then((r) => {
@@ -63,9 +67,16 @@ function Detail({ id }: { id: number }) {
   function loadRates() {
     api.get<PartnerRate[]>(`/api/rfqs/${id}/rates`).then(setRates).catch(() => {});
   }
+  function loadMemory() {
+    api
+      .get<LaneRateMemory>(`/api/rfqs/${id}/rate-suggestions`)
+      .then(setMemory)
+      .catch(() => setMemory(null));
+  }
   useEffect(() => {
     loadRfq();
     loadRates();
+    loadMemory();
     api.get<Customer[]>("/api/customers").then(setCustomers).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -115,8 +126,28 @@ function Detail({ id }: { id: number }) {
       });
       setNewRate({ ...newRate, partner_name: "", cost_amount: "", transit_time: "" });
       loadRates();
+      loadMemory();
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+
+  /** Copy a remembered rate onto this RFQ and pre-select it, so the next click
+   *  is "Start quote" rather than another form. */
+  async function useRemembered(rateId: number) {
+    setReusing(rateId);
+    setError("");
+    try {
+      const copied = await api.post<PartnerRate>(
+        `/api/rfqs/${id}/rates/from-history/${rateId}`
+      );
+      loadRates();
+      loadMemory();
+      setSelectedRate(copied.id);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setReusing(null);
     }
   }
 
@@ -263,6 +294,75 @@ function Detail({ id }: { id: number }) {
           </p>
         )}
       </Panel>
+
+      {memory && memory.lane_known && memory.suggestions.length > 0 && (
+        <Panel
+          title="Rate memory — this lane has been priced before"
+          actions={
+            <span className="text-xs text-slate-500">
+              {memory.exact_matches} exact
+              {memory.route_matches > 0 && `, ${memory.route_matches} same route`}
+              {memory.median_cost != null && ` · median ${memory.median_cost}`}
+            </span>
+          }
+        >
+          <p className="mb-3 text-sm text-slate-500">
+            Use one of these to answer now instead of waiting for a partner
+            reply. Nothing is applied automatically — the copy is yours to edit,
+            and you should confirm it is still valid before quoting.
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-slate-500">
+                <th className="py-1">Partner</th>
+                <th>Cost</th>
+                <th>Transit</th>
+                <th>Age</th>
+                <th>Last quoted</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {memory.suggestions.map((s) => (
+                <tr key={s.rate_id} className="border-t border-slate-100">
+                  <td className="py-2">
+                    <div className="font-medium text-slate-800">{s.partner_name}</div>
+                    <div className="text-xs text-slate-400">
+                      {s.match === "exact" ? s.source : `Same route · ${s.lane}`}
+                    </div>
+                  </td>
+                  <td className="text-slate-700">
+                    {s.cost_amount != null ? `${s.cost_amount} ${s.currency}` : "—"}
+                  </td>
+                  <td className="text-slate-600">{s.transit_time ?? "—"}</td>
+                  <td className="text-slate-500">
+                    {s.age_days}d
+                    {s.is_expired && (
+                      <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-800">
+                        expired
+                      </span>
+                    )}
+                  </td>
+                  <td className="text-slate-600">
+                    {s.quoted_selling_price != null
+                      ? `${s.quoted_selling_price}${s.outcome ? ` · ${s.outcome}` : ""}`
+                      : "—"}
+                  </td>
+                  <td className="text-right">
+                    <Button
+                      variant="secondary"
+                      onClick={() => useRemembered(s.rate_id)}
+                      disabled={reusing === s.rate_id}
+                    >
+                      {reusing === s.rate_id ? "Adding…" : "Use"}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      )}
 
       <Panel title="Partner rates">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-6">

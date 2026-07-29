@@ -47,9 +47,14 @@ export interface RFQExtraction {
 
 export interface PartnerRate {
   id: number;
-  rfq_id: number;
+  rfq_id: number | null; // tariff rates exist without an enquiry
   partner_name: string;
   partner_type: string | null;
+  source: string;
+  origin: string | null;
+  destination: string | null;
+  transport_mode: string | null;
+  container_type: string | null;
   cost_amount: number | null;
   currency: string;
   included_charges: string | null;
@@ -61,6 +66,55 @@ export interface PartnerRate {
   risk_notes: string | null;
   reliability_score: number | null;
   created_at: string;
+}
+
+export interface RateSuggestion {
+  rate_id: number;
+  /** "exact" = same lane; "route" = same origin/destination, different mode or
+   *  equipment. Kept distinct so a 20GP price is never read as a 40HC one. */
+  match: "exact" | "route";
+  partner_name: string;
+  partner_type: string | null;
+  source: string;
+  lane: string;
+  cost_amount: number | null;
+  currency: string;
+  transit_time: string | null;
+  age_days: number;
+  validity_date: string | null;
+  is_expired: boolean;
+  notes: string | null;
+  rfq_id: number | null;
+  rfq_reference: string | null;
+  quoted_selling_price: number | null;
+  outcome: string | null;
+}
+
+export interface LaneRateMemory {
+  lane: string;
+  lane_known: boolean;
+  exact_matches: number;
+  route_matches: number;
+  median_cost: number | null;
+  suggestions: RateSuggestion[];
+}
+
+export interface LaneCoverage {
+  lane_key: string;
+  lane: string;
+  rate_count: number;
+  live_rate_count: number;
+  partner_count: number;
+  median_cost: number | null;
+  newest_rate_days: number | null;
+  enquiries: number;
+}
+
+export interface TariffImportResult {
+  created: number;
+  skipped_duplicates: number;
+  rejected: number;
+  errors: { line: number; reason: string }[];
 }
 
 export interface RateOption {

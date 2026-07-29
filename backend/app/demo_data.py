@@ -101,13 +101,25 @@ _HISTORY: list[tuple[int, float | None, str]] = [
     (4, None, "unanswered"),
 ]
 
+# Lane, plus a typical market cost for it. Rates vary by a few percent around
+# the base so the rate-memory panel shows a realistic spread of partner offers
+# rather than one number repeated.
 _HISTORY_LANES = [
-    ("Shanghai", "Jebel Ali", "Sea", "FCL", "40HC"),
-    ("Ningbo", "Dubai", "Sea", "FCL", "20GP"),
-    ("Shenzhen", "Dubai", "Air", "Air Cargo", None),
-    ("Dubai", "Muscat", "Road", "Trucking", None),
-    ("Mundra", "Jebel Ali", "Sea", "FCL", "20GP"),
+    ("Shanghai", "Jebel Ali", "Sea", "FCL", "40HC", 1450.0),
+    ("Ningbo", "Dubai", "Sea", "FCL", "20GP", 1180.0),
+    ("Shenzhen", "Dubai", "Air", "Air Cargo", None, 2650.0),
+    ("Dubai", "Muscat", "Road", "Trucking", None, 620.0),
+    ("Mundra", "Jebel Ali", "Sea", "FCL", "20GP", 540.0),
 ]
+
+# Partners that plausibly serve each mode — a trucking company quoting an ocean
+# lane would make the demo look like test data, which is exactly what it is not
+# meant to look like.
+_HISTORY_PARTNERS = {
+    "Sea": ["Ocean Star Line", "Indus Container Line", "Meridian Shipping"],
+    "Air": ["SkyBridge Cargo", "Falcon Air Freight", "Meridian Air"],
+    "Road": ["Gulf Road Transport", "Desert Line Logistics", "Al Wahda Trucking"],
+}
 
 
 def _seed_response_history(db, customer_ids: list[int]) -> None:
@@ -120,12 +132,12 @@ def _seed_response_history(db, customer_ids: list[int]) -> None:
 
     from app.models.enums import QuoteStatus
     from app.models.quote import Quote
-    from app.models.rfq import RFQ
+    from app.services.lanes import lane_fields
     from app.services.reference import quote_number, sequence_for
 
     now = datetime.now(timezone.utc)
     for index, (days_ago, answer_hours, outcome) in enumerate(_HISTORY):
-        origin, destination, mode, shipment, container = _HISTORY_LANES[
+        origin, destination, mode, shipment, container, base_cost = _HISTORY_LANES[
             index % len(_HISTORY_LANES)
         ]
         asked_at = now - timedelta(days=days_ago, hours=index % 8)
@@ -151,7 +163,31 @@ def _seed_response_history(db, customer_ids: list[int]) -> None:
         sent_at = asked_at + timedelta(hours=answer_hours)
         rfq.first_quoted_at = sent_at
         rfq.status = RFQStatus.WON if outcome == "won" else RFQStatus.LOST
-        cost = 1400.0 + (index % 5) * 120
+        # A few percent of drift around the lane's market level, so the rate
+        # memory panel shows a spread of partner offers rather than one number.
+        cost = round(base_cost * (1 + ((index * 7) % 11 - 5) / 100.0), 2)
+        # Partners rotate independently of the lane cycle, so a lane quoted
+        # several times shows competing carriers rather than the same one.
+        for_mode = _HISTORY_PARTNERS[mode]
+        partner = for_mode[(index // len(_HISTORY_LANES)) % len(for_mode)]
+        # The partner rate behind the quote: this is what makes the same lane
+        # answerable instantly next time (see app/services/rate_memory.py).
+        rate = PartnerRate(
+            rfq_id=rfq.id,
+            partner_name=partner,
+            partner_type=None,
+            cost_amount=cost,
+            currency="USD",
+            transit_time="22 days" if mode == "Sea" else "3 days",
+            # Half the history has since lapsed — the panel should be able to
+            # show an expired rate, because a real desk's memory contains them.
+            validity_date=(asked_at + timedelta(days=60)).date(),
+            **lane_fields(rfq),
+        )
+        # Dated to when it was actually received, so "age" means something.
+        rate.created_at = asked_at
+        rate.updated_at = asked_at
+        db.add(rate)
         quote = Quote(
             rfq_id=rfq.id,
             customer_id=rfq.customer_id,
@@ -437,7 +473,9 @@ def _seed_within_org(db, llm) -> None:
             "high-severity issue\n"
             "  1 follow-up due today\n"
             f"  {len(_HISTORY)} enquiries of response-time history over four "
-            "weeks, for the Performance page\n\n"
+            "weeks, for the Performance page\n"
+            "  partner rates across 5 lanes, so a repeat enquiry can be quoted "
+            "from memory\n\n"
             "Note: draft texts in demo records are canned placeholders — "
             "regenerate any draft in the app to see your real AI provider.\n"
             "Log in and open the Dashboard."

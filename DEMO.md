@@ -53,13 +53,26 @@ flagged (Incoterm, HS code…), urgency, recommended next action. Every field is
 editable — the AI proposes, the human owns the record.
 
 **4. RFQ detail — the commercial loop (90s).**
+- **Rate memory** (open the Shanghai → Jebel Ali RFQ): this lane has been priced
+  four times before, by four carriers, with what was charged and whether it was
+  won. Click **Use** — the rate is copied onto the enquiry, annotated with where
+  it came from, and the next click is *Start quote*. **This is the step that
+  makes a thirty-minute answer possible**: no carrier email, no waiting.
+  Say what it will not do: Dubai never matches Jebel Ali, a 20GP price is
+  labelled as a different lane, and an expired rate says so.
 - **Missing-info email**: one click drafts the customer email requesting
   exactly the absent details. Editable, copy-paste to send.
-- **Rate request**: pick a partner type (shipping line / trucker / customs
-  broker) → tailored rate-request message.
+- **Rate request**: for a lane with no memory, pick a partner type (shipping
+  line / trucker / customs broker) → tailored rate-request message.
 - **Partner rates**: enter two offers, click **Compare rates (AI)** → cheapest
   / fastest / lowest-risk / recommended, with tradeoffs.
 - **Start quote →** with 20% markup.
+
+**4b. Rates &amp; Lanes (30s).** Lane coverage answers the question a buyer asks
+next: *how much of my business can this price instantly?* Upload a contract rate
+sheet (template on the page) and the covered lanes become quotable immediately;
+re-uploading the same sheet adds nothing, and a bad row is reported with its
+line number rather than silently dropped.
 
 **5. Quote approval — the human-in-the-loop moment (60s).** The quote is
 **Pending approval**: cost, selling price, margin, warnings, and the draft

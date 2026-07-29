@@ -90,6 +90,28 @@ every draft still needs human approval. Credentials are encrypted at rest
 Polling runs in the Celery worker every `EMAIL_POLL_INTERVAL_MINUTES` (default
 3); **Check now** on the inbox page polls immediately.
 
+## Rate memory (Rates &amp; Lanes)
+
+Answering in thirty minutes is impossible if the price has to be requested from
+a carrier first — the wait hands the clock straight back. So every rate is
+stored against its **lane** (origin → destination + mode + equipment) rather
+than being locked to the one enquiry it arrived for:
+
+- opening an RFQ on a lane quoted before shows the prior rates, how old they
+  are, **what was actually charged and whether it was won**;
+- **Use** copies a remembered rate onto the enquiry — a copy, annotated with
+  where it came from, never a silent link;
+- a **contract rate sheet** can be imported as CSV
+  (`origin, destination, partner_name, cost_amount` required, template on the
+  page), so covered lanes are quotable from day one;
+- **Lane coverage** answers "how much of my business can this price instantly?"
+
+Where it deliberately refuses to guess: place names are normalised only for
+unambiguous noise (case, punctuation, a trailing country, "Port of"), never
+fuzzily — Dubai does not match Jebel Ali. Same-route-but-different-equipment
+rates are shown separately and labelled, and expired rates are shown but marked
+and ranked last. Nothing is ever applied without a human choosing it.
+
 ## Measuring whether it works (Performance page)
 
 Speed is the thing being sold, so it is measured rather than asserted. The
@@ -183,8 +205,8 @@ hosted multi-customer deployment is in place rather than deferred:
 - Per-provider LLM abstraction — keys and models are environment config.
 
 Still open, tracked honestly: role enforcement across endpoints and an audit
-trail, per-lane rate reuse, a published extraction-accuracy number measured on
-real customer emails, and a production deployment guide with TLS.
+trail, a published extraction-accuracy number measured on real customer emails,
+and a production deployment guide with TLS.
 
 ## Safety & control rules
 

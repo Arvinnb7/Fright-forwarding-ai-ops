@@ -7,7 +7,7 @@ const NAV = [
   { href: "/", label: "Dashboard" },
   { href: "/inbox", label: "Email Inbox" },
   { href: "/rfqs", label: "RFQs" },
-  { href: "/rates", label: "Rate Requests" },
+  { href: "/rates", label: "Rates & Lanes" },
   { href: "/quotes", label: "Quotations" },
   { href: "/follow-ups", label: "Follow-ups" },
   { href: "/bookings", label: "Bookings" },

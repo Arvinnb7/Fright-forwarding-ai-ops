@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy import event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -57,6 +58,10 @@ class RFQ(Base, TenantMixin, TimestampMixin):
     # Routing
     origin: Mapped[str | None] = mapped_column(String(255))
     destination: Mapped[str | None] = mapped_column(String(255))
+    # Derived lane identity, kept in sync by the listeners at the bottom of this
+    # module so no write path can forget to recompute it.
+    lane_key: Mapped[str | None] = mapped_column(String(512), index=True)
+    route_key: Mapped[str | None] = mapped_column(String(512), index=True)
     pickup_address: Mapped[str | None] = mapped_column(Text)
     delivery_address: Mapped[str | None] = mapped_column(Text)
 
@@ -92,7 +97,19 @@ class RFQ(Base, TenantMixin, TimestampMixin):
     status: Mapped[RFQStatus] = mapped_column(_enum(RFQStatus), default=RFQStatus.NEW)
 
     customer: Mapped["Customer | None"] = relationship(back_populates="rfqs")
-    partner_rates: Mapped[list["PartnerRate"]] = relationship(
-        back_populates="rfq", cascade="all, delete-orphan"
-    )
+    partner_rates: Mapped[list["PartnerRate"]] = relationship(back_populates="rfq")
     quotes: Mapped[list["Quote"]] = relationship(back_populates="rfq")
+
+
+# The lane key is what makes "we have quoted this before" work, so it is
+# recomputed by the ORM on every insert and update rather than by each caller.
+# A route corrected by hand three days later must start matching immediately.
+@event.listens_for(RFQ, "before_insert")
+@event.listens_for(RFQ, "before_update")
+def _refresh_lane_key(_mapper, _connection, target: "RFQ") -> None:
+    from app.services.lanes import lane_key, route_key
+
+    target.lane_key = lane_key(
+        target.origin, target.destination, target.transport_mode, target.container_type
+    )
+    target.route_key = route_key(target.origin, target.destination)
