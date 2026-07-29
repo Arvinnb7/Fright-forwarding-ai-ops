@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, downloadFile, uploadFile } from "@/lib/api";
 import {
   Booking,
   BOOKING_STATUSES,
@@ -23,6 +23,8 @@ function BookingDetail({ id }: { id: number }) {
   const [extraNote, setExtraNote] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState<number | null>(null);
+  const [fileError, setFileError] = useState("");
 
   function load() {
     api.get<Booking>(`/api/bookings/${id}`).then((b) => {
@@ -81,6 +83,19 @@ function BookingDetail({ id }: { id: number }) {
   async function setDocStatus(docId: number, status: string) {
     await api.patch(`/api/bookings/documents/${docId}`, { status });
     load();
+  }
+
+  async function uploadDoc(docId: number, file: File) {
+    setFileError("");
+    setUploading(docId);
+    try {
+      await uploadFile(`/api/bookings/documents/${docId}/file`, file);
+      load();
+    } catch (e) {
+      setFileError((e as Error).message || "Upload failed.");
+    } finally {
+      setUploading(null);
+    }
   }
 
   async function genUpdate() {
@@ -174,6 +189,9 @@ function BookingDetail({ id }: { id: number }) {
           />
           <Button onClick={addDoc} disabled={!newDoc.trim()}>Add</Button>
         </div>
+        <div className="mb-2">
+          <ErrorText>{fileError}</ErrorText>
+        </div>
         {docs.length === 0 ? (
           <p className="text-sm text-slate-500">No documents tracked yet.</p>
         ) : (
@@ -182,6 +200,7 @@ function BookingDetail({ id }: { id: number }) {
               <tr className="text-left text-xs uppercase text-slate-500">
                 <th className="py-1">Document</th>
                 <th>Status</th>
+                <th>File</th>
                 <th>Notes</th>
               </tr>
             </thead>
@@ -197,6 +216,39 @@ function BookingDetail({ id }: { id: number }) {
                     >
                       {DOCUMENT_STATUSES.map((s) => (<option key={s}>{s}</option>))}
                     </select>
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      {d.has_file && (
+                        <button
+                          className="text-xs text-brand-600 hover:underline"
+                          onClick={() =>
+                            downloadFile(
+                              `/api/bookings/documents/${d.id}/file`,
+                              d.file_name ?? `document-${d.id}`
+                            ).catch((e) => setFileError((e as Error).message))
+                          }
+                        >
+                          {d.file_name}
+                        </button>
+                      )}
+                      <label className="cursor-pointer text-xs text-slate-500 hover:text-slate-700">
+                        {uploading === d.id
+                          ? "Uploading…"
+                          : d.has_file
+                            ? "Replace"
+                            : "Upload"}
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) uploadDoc(d.id, file);
+                          }}
+                        />
+                      </label>
+                    </div>
                   </td>
                   <td className="text-slate-500">{d.notes ?? ""}</td>
                 </tr>

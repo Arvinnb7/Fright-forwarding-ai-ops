@@ -43,13 +43,41 @@ class IntegrationFakeLLM:
         "recommended_next_action": "Request Incoterm and HS code.",
     }
 
+    # Test emails carry an explicit marker in the subject so triage is
+    # deterministic; real classification quality is measured by the eval suite,
+    # not by these tests.
+    MARKERS = {
+        "[RFQ]": "New RFQ",
+        "[RATE]": "Partner rate reply",
+        "[REPLY]": "Customer reply",
+        "[SPAM]": "Not relevant",
+    }
+
     def complete(self, *, system: str, user: str, max_tokens: int = 4096) -> str:
         return "DRAFT TEXT (editable) — generated for integration testing."
+
+    def _classify(self, user: str) -> dict[str, Any]:
+        import re
+
+        classification = "Not relevant"
+        for marker, label in self.MARKERS.items():
+            if marker in user:
+                classification = label
+                break
+        reference = re.search(r"\b(?:RFQ|Q|JOB)-\d{4}-\d{4}\b", user)
+        return {
+            "classification": classification,
+            "confidence": 0.95,
+            "reason": "Marker found in subject.",
+            "mentions_reference": reference.group(0) if reference else None,
+        }
 
     def complete_structured(
         self, *, system: str, user: str, schema: dict, max_tokens: int = 8000
     ) -> dict:
         props = schema.get("properties", {})
+        if "classification" in props:  # email-triage schema
+            return self._classify(user)
         if "suggestions" in props:  # document-suggestions schema
             return {
                 "suggestions": [

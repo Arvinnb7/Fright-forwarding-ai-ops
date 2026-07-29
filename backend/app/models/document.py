@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -25,7 +25,12 @@ class Document(Base, TenantMixin, TimestampMixin):
     status: Mapped[DocumentStatus] = mapped_column(
         enum_column(DocumentStatus), default=DocumentStatus.REQUIRED
     )
+    # Storage-relative path (see app/services/storage.py) plus the metadata
+    # needed to serve the file back with its original name.
     file_path: Mapped[str | None] = mapped_column(String(512))
+    file_name: Mapped[str | None] = mapped_column(String(255))
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    content_type: Mapped[str | None] = mapped_column(String(128))
     notes: Mapped[str | None] = mapped_column(Text)
 
     booking: Mapped["Booking"] = relationship(back_populates="documents")

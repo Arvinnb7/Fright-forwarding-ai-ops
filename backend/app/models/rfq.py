@@ -1,10 +1,20 @@
 """RFQ — the central inquiry record."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Boolean, Date, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +42,11 @@ class RFQ(Base, TenantMixin, TimestampMixin):
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"))
 
     raw_message: Mapped[str | None] = mapped_column(Text)
+    # When the CUSTOMER asked (email date), not when we processed it.
+    # This is the start of the response-time clock the ROI case rests on.
+    received_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
 
     # Routing
     origin: Mapped[str | None] = mapped_column(String(255))

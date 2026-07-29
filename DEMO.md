@@ -23,7 +23,23 @@ Open <http://localhost:3000> and sign in with the admin credentials from `.env`.
 follow-ups due, pipeline and margin totals — all computed from the database.
 Every card clicks through to its module.
 
-**2. RFQ Inbox — paste a real inquiry (60s).** Paste:
+**2. Email Inbox — where the value actually is (60s).** This is the part worth
+leading with. Connect a real mailbox under **Settings → Mailbox** (an app
+password is enough), send yourself an enquiry, and press **Check now**: the
+message is triaged, the RFQ is created already parsed, and its `received_at` is
+the moment the *customer* wrote — not the moment somebody noticed.
+
+Say the number out loud: forwarders answer roughly a third of enquiries, on
+average in about 90 hours, and the first credible responder wins around
+two-thirds of the time. Manual copy-paste cannot fix that; polling every three
+minutes can.
+
+Point out what it deliberately does **not** do: the mailbox is opened
+read-only, so nothing is sent, deleted or marked as read, and every draft still
+waits for a human.
+
+**3. RFQs — anything that arrived another way (60s).** For WhatsApp, a phone
+call or a portal, paste it in:
 
 ```
 Hi, please quote for 1x40HC from Shanghai to Jebel Ali.
@@ -36,7 +52,7 @@ Click **Parse & create** → structured shipment fields, missing information
 flagged (Incoterm, HS code…), urgency, recommended next action. Every field is
 editable — the AI proposes, the human owns the record.
 
-**3. RFQ detail — the commercial loop (90s).**
+**4. RFQ detail — the commercial loop (90s).**
 - **Missing-info email**: one click drafts the customer email requesting
   exactly the absent details. Editable, copy-paste to send.
 - **Rate request**: pick a partner type (shipping line / trucker / customs
@@ -45,33 +61,35 @@ editable — the AI proposes, the human owns the record.
   / fastest / lowest-risk / recommended, with tradeoffs.
 - **Start quote →** with 20% markup.
 
-**4. Quote approval — the human-in-the-loop moment (60s).** The quote is
+**5. Quote approval — the human-in-the-loop moment (60s).** The quote is
 **Pending approval**: cost, selling price, margin, warnings, and the draft
 text. This is a real paused LangGraph workflow persisted in Postgres — not a
 UI flag. Edit the price (watch margin recompute on approve), tick **Mark as
 sent** → a follow-up is scheduled automatically (day 1 of the 1/3/5/7 cadence).
 
-**5. Follow-ups (30s).** One follow-up is already **due today** (seeded).
+**6. Follow-ups (30s).** One follow-up is already **due today** (seeded).
 Generate a polite draft → **Mark sent** → the next cadence step self-schedules.
 
-**6. Bookings — operations handover (60s).** Open the in-transit job
+**7. Bookings — operations handover (60s).** Open the in-transit job
 `JOB-…`: commercials copied from the won quote, status timeline, a document
 checklist (Certificate of Origin **Missing**), and a customer status-update
-draft generated from the current status. The open **Customs-document issue**
-shows escalation / customer-explanation drafts.
+draft generated from the current status. Upload a PDF against a checklist row —
+it stores the real file and flips the row to **Received**. The open
+**Customs-document issue** shows escalation / customer-explanation drafts.
 
-**7. Reports (30s).** Generate the daily management summary — accurate numbers
+**8. Reports (30s).** Generate the daily management summary — accurate numbers
 from the DB, narrated by the AI — copy it or download the PDF. CSV exports are
 on the RFQ / Quotes / Customers pages.
 
 ## The one-liner to close with
 
-> One coordinator, operating like a full commercial operations team: every
-> messy email becomes a structured record, every price passes a human gate,
-> and nothing is forgotten.
+> You already lose most enquiries to the clock, not to price. This answers all
+> of them, within minutes, and still lets you approve every number that leaves
+> the building.
 
 ## Path to SaaS (when asked "can this scale?")
 
-Multi-user SaaS is a configuration step away architecturally, not a rewrite:
-PostgreSQL, JWT auth, per-user rows, Celery workers and a stateless API are
-already in place. See README → "Path to SaaS".
+Multi-tenancy is already enforced in the data layer, not planned: every
+tenant-scoped query is filtered by organization automatically, and an isolation
+suite attacks that on every route shape. Add signup, add a customer. See
+README → "Path to SaaS".

@@ -62,6 +62,44 @@ def refresh_due_follow_ups() -> int:
         db.close()
 
 
+@celery_app.task(name="app.workers.tasks.poll_mailboxes")
+def poll_mailboxes() -> dict[str, int]:
+    """Poll every enabled mailbox. This is what makes fast response possible:
+    an RFQ email becomes a structured RFQ within one interval, with no human
+    opening an inbox first."""
+    from sqlalchemy import select as _select
+
+    from app.email import EmailError
+    from app.models.mailbox import MailboxConfig
+    from app.services.email_ingest import ingest_mailbox
+
+    db = SessionLocal()
+    totals = {"mailboxes": 0, "fetched": 0, "rfqs_created": 0, "failed": 0}
+    try:
+        for org_id in _active_org_ids(db):
+            with organization_scope(org_id, db):
+                config = db.execute(
+                    _select(MailboxConfig).where(MailboxConfig.is_enabled.is_(True))
+                ).scalars().first()
+                if config is None:
+                    continue
+                totals["mailboxes"] += 1
+                try:
+                    result = ingest_mailbox(db, config)
+                except EmailError:
+                    # Already recorded on the config row; one broken mailbox
+                    # must not stop the other tenants from being polled.
+                    totals["failed"] += 1
+                    continue
+                totals["fetched"] += result.fetched
+                totals["rfqs_created"] += result.rfqs_created
+                totals["failed"] += result.failed
+        log.info("mailboxes_polled", **totals)
+        return totals
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.workers.tasks.run_daily_backup")
 def run_daily_backup() -> str:
     """Dump the database to storage/backups/ and keep the newest BACKUP_KEEP.

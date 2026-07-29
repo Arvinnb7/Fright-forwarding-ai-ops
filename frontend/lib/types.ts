@@ -225,9 +225,73 @@ export interface ShipmentDocument {
   document_type: string;
   status: string;
   notes: string | null;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  content_type: string | null;
+  has_file: boolean;
   created_at: string;
   updated_at: string;
 }
+
+export interface MailboxConfig {
+  id: number;
+  host: string;
+  port: number;
+  use_ssl: boolean;
+  username: string;
+  folder: string;
+  is_enabled: boolean;
+  last_seen_uid: number | null;
+  last_polled_at: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
+export interface EmailAttachment {
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  path?: string;
+  error?: string;
+}
+
+export interface EmailMessage {
+  id: number;
+  message_id: string;
+  thread_key: string | null;
+  from_address: string | null;
+  from_name: string | null;
+  subject: string | null;
+  body: string | null;
+  received_at: string | null;
+  classification: string;
+  classification_confidence: number | null;
+  classification_reason: string | null;
+  status: string;
+  error: string | null;
+  rfq_id: number | null;
+  quote_id: number | null;
+  attachments: EmailAttachment[];
+  created_at: string;
+}
+
+export interface IngestRunResult {
+  fetched: number;
+  skipped_duplicates: number;
+  rfqs_created: number;
+  rate_replies_linked: number;
+  customer_replies_linked: number;
+  ignored: number;
+  failed: number;
+}
+
+export const EMAIL_CLASSIFICATIONS = [
+  "New RFQ",
+  "Partner rate reply",
+  "Customer reply",
+  "Not relevant",
+  "Unclassified",
+];
 
 export interface Issue {
   id: number;

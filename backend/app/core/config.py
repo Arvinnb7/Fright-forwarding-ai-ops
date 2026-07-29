@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     app_env: str = "local"
     log_level: str = "INFO"
     secret_key: str = "change-me-to-a-long-random-string"
+    # Encrypts mailbox credentials at rest. Falls back to a key derived from
+    # SECRET_KEY when unset; set it explicitly to rotate independently.
+    mailbox_encryption_key: str = ""
     access_token_expire_minutes: int = 43200  # 30 days
     algorithm: str = "HS256"
 
@@ -38,6 +41,16 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     celery_broker_url: str = "redis://redis:6379/1"
     celery_result_backend: str = "redis://redis:6379/2"
+
+    # ── Email ingestion ──────────────────────────────────────
+    email_poll_interval_minutes: int = 3
+    email_fetch_batch_size: int = 25
+
+    # ── File storage ─────────────────────────────────────────
+    # Local disk by default; point it at a mounted volume in production so
+    # uploads survive container replacement.
+    storage_dir: str = "storage/files"
+    max_upload_mb: int = 25
 
     # ── LLM ──────────────────────────────────────────────────
     llm_provider: str = "anthropic"

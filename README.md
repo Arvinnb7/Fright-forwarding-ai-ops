@@ -1,13 +1,15 @@
 # Freight AI Ops
 
-A private, **local-first AI operations system** for a Freight Forwarding Sales &
-Operations Coordinator. It turns messy customer inquiries, partner replies,
-quotes, follow-ups and shipment events into structured operational output — so
-one person can operate like a highly organized commercial operations team.
+An **AI operations system for freight forwarding sales & operations**. It reads
+the enquiries arriving in your mailbox and turns them — along with partner
+replies, quotes, follow-ups and shipment events — into structured operational
+output, so a small desk can answer every enquiry quickly instead of answering a
+third of them days late.
 
 The AI agents are orchestrated with **LangGraph**, the API is **FastAPI**, and the
-dashboard is **Next.js**. The whole system runs on your own machine via Docker
-Compose — no public server, no cloud required.
+dashboard is **Next.js**. The whole stack comes up with one Docker Compose
+command — on your own machine, your own server, or a hosted deployment serving
+several forwarders side by side (see *Path to SaaS*).
 
 > This is built to be a stable daily-use internal tool, not a demo. Pricing,
 > customer communication and shipment confirmation always stay under human
@@ -23,7 +25,8 @@ Compose — no public server, no cloud required.
 | Backend | Python, FastAPI, Pydantic |
 | AI agents | LangGraph + provider abstraction (Anthropic default, OpenAI/Gemini optional) |
 | Database | PostgreSQL (+ Alembic migrations) |
-| Background jobs | Celery + Redis (follow-up reminders, reports, backups) |
+| Email intake | IMAP polling (read-only), per-organization, credentials encrypted at rest |
+| Background jobs | Celery + Redis (mailbox polling, follow-up reminders, reports, backups) |
 | Deployment | Docker Compose |
 
 ## Quick start
@@ -55,6 +58,37 @@ analysis) with your API key. It costs a few cents:
 ```bash
 docker compose exec backend python -m app.smoke_llm
 ```
+
+## Connect a mailbox (automatic RFQ intake)
+
+The system reads the mailbox where enquiries arrive and turns each new RFQ into
+a structured record on its own, so response time is bounded by the polling
+interval (minutes) rather than by when somebody opens their inbox.
+
+1. In the dashboard go to **Email Inbox → Connect a mailbox** (or
+   `/settings/mailbox`).
+2. Enter the IMAP server, the address and a password. Accounts with two-factor
+   authentication need an **app password**, not the account password.
+3. Press **Test connection**, then **Connect**.
+
+Incoming mail is triaged into *new RFQ*, *partner rate reply*, *customer reply*
+and *not relevant*:
+
+- a **new RFQ** is parsed and appears in RFQs already structured, with its
+  `received_at` set to when the customer actually wrote;
+- a **rate reply** is attached to the RFQ it answers (by thread, or by the
+  reference quoted in the body);
+- a **customer reply** stops that quotation's follow-up cadence, so nobody is
+  chased after they have answered;
+- attachments are stored and downloadable from the message.
+
+What it never does: send, delete, or mark mail as read. The mailbox is opened
+read-only (`EXAMINE` + `BODY.PEEK`) and left exactly as the user left it, and
+every draft still needs human approval. Credentials are encrypted at rest
+(`MAILBOX_ENCRYPTION_KEY`) and are never returned by the API.
+
+Polling runs in the Celery worker every `EMAIL_POLL_INTERVAL_MINUTES` (default
+3); **Check now** on the inbox page polls immediately.
 
 ## Demo dataset (optional)
 
@@ -88,9 +122,14 @@ You can run services individually — see `backend/README.md` for the backend
 
 ## Testing & CI
 
-- `backend: pytest` — unit suite (no DB needed; integration auto-skips).
+- `backend: pytest` — unit suite (no DB needed; integration auto-skips). Covers
+  MIME parsing, credential encryption, tenant-scoped file storage, and the IMAP
+  client against an in-process IMAP server that asserts the mailbox is never
+  modified.
 - `RUN_INTEGRATION=1 pytest tests/integration` — full HTTP flow against a live
-  Postgres (self-bootstrapping: migrates + creates the admin).
+  Postgres (self-bootstrapping: migrates + creates the admin), including email
+  ingestion end to end with an injected fake mailbox and the cross-tenant
+  isolation suite.
 - GitHub Actions runs unit, integration (Postgres+Redis services), and the
   production frontend build on every push.
 - Daily `pg_dump` backups are written to `storage/backups/` (worker keeps the
@@ -98,25 +137,39 @@ You can run services individually — see `backend/README.md` for the backend
 
 ## Path to SaaS
 
-This ships as a local-first single-operator tool by design, but the
-architecture was chosen so a multi-user cloud deployment is configuration, not
-a rewrite:
+It runs perfectly well as a single-company install, but the foundation for a
+hosted multi-customer deployment is in place rather than deferred:
 
-- **PostgreSQL** (not SQLite) with Alembic migrations from day one.
-- **JWT auth** with a users table — adding users/roles extends the existing
-  model instead of introducing auth late.
-- **Stateless API + Celery workers** — horizontal scaling is a compose/K8s
-  concern, not a code change.
+- **Multi-tenancy is enforced by construction.** Every tenant-scoped table
+  carries `org_id`, and a SQLAlchemy `do_orm_execute` listener filters *every*
+  select — including relationship loads — by the active organization
+  (`backend/app/core/tenancy.py`). Inserts without an organization are refused
+  rather than written. Per-route filtering was rejected deliberately: in a SaaS,
+  one forgotten `WHERE` is a cross-customer breach. A dedicated suite
+  (`tests/integration/test_tenant_isolation.py`) attacks this on every route
+  shape.
+- **Self-serve signup** creates the organization and its first admin; reference
+  numbers restart at 1 per organization so nobody sees our total volume.
+- **PostgreSQL** (not SQLite) with Alembic migrations from day one, written
+  defensively so both fresh installs and existing databases converge on the
+  same schema.
+- **Per-tenant background work** — Celery jobs iterate organizations and scope
+  each pass explicitly, since a worker has no request context.
 - **Durable agent state in Postgres** (LangGraph checkpointer) — paused
   approvals survive restarts and load-balanced instances.
+- **Secrets encrypted at rest** (mailbox credentials, Fernet) with a rotatable
+  key.
 - Per-provider LLM abstraction — keys and models are environment config.
 
-The remaining productization items are tracked honestly: e-mail ingestion
-(Gmail/Outlook), role-based access, extraction-accuracy evaluation on real
-customer emails, and a cloud deployment guide.
+Still open, tracked honestly: role enforcement across endpoints and an audit
+trail, per-lane rate reuse, a published extraction-accuracy number measured on
+real customer emails, response-time reporting, and a production deployment
+guide with TLS.
 
 ## Safety & control rules
 
+- Connected mailboxes are **read-only**. Mail is never sent, deleted, moved or
+  marked as read.
 - The AI **never** auto-sends emails, quotes, or commitments.
 - Pricing, margin, contractual terms, DG decisions and shipment commitments
   require explicit human approval (enforced via human-in-the-loop interrupts in

@@ -1,7 +1,7 @@
 """Booking / job-file endpoints: convert, CRUD, documents, status-update drafts."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,8 @@ from app.agents.shipment_ops import (
     run_document_suggestions,
     run_status_update,
 )
+from app.api.files import file_response
+from app.core.config import settings
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.llm import get_llm
@@ -17,6 +19,7 @@ from app.llm.base import LLMError
 from app.models.booking import Booking
 from app.models.customer import Customer
 from app.models.document import Document
+from app.models.enums import DocumentStatus
 from app.models.user import User
 from app.schemas.booking import (
     BookingCreateFromQuote,
@@ -30,6 +33,7 @@ from app.schemas.booking import (
     StatusUpdateDraftOut,
 )
 from app.services.booking_service import create_booking_from_quote
+from app.services.storage import StorageError, delete_file, read_bytes, save_bytes
 
 router = APIRouter()
 
@@ -143,14 +147,88 @@ def update_document(
 def delete_document(
     document_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ) -> Response:
     doc = db.get(Document, document_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
+    delete_file(doc.file_path, user.organization_id)
     db.delete(doc)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/documents/{document_id}/file", response_model=DocumentOut)
+def upload_document_file(
+    document_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Document:
+    """Attach the actual file to a tracked document.
+
+    Uploading also moves the document to 'Received' — the checklist and the
+    files it tracks should never disagree.
+    """
+    doc = db.get(Document, document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    limit = settings.max_upload_mb * 1024 * 1024
+    if len(content) > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {settings.max_upload_mb} MB upload limit",
+        )
+
+    previous = doc.file_path
+    try:
+        path, display_name = save_bytes(
+            org_id=user.organization_id,
+            category="documents",
+            filename=file.filename,
+            content=content,
+        )
+    except StorageError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    doc.file_path = path
+    doc.file_name = display_name
+    doc.file_size_bytes = len(content)
+    doc.content_type = file.content_type or "application/octet-stream"
+    if doc.status == DocumentStatus.REQUIRED:
+        doc.status = DocumentStatus.RECEIVED
+    db.commit()
+    db.refresh(doc)
+    # Only after the new file is safely committed.
+    if previous and previous != path:
+        delete_file(previous, user.organization_id)
+    return doc
+
+
+@router.get("/documents/{document_id}/file")
+def download_document_file(
+    document_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Response:
+    doc = db.get(Document, document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.file_path:
+        raise HTTPException(status_code=404, detail="No file uploaded for this document")
+    try:
+        content = read_bytes(doc.file_path, user.organization_id)
+    except StorageError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return file_response(
+        content,
+        filename=doc.file_name or f"document-{doc.id}",
+        content_type=doc.content_type or "application/octet-stream",
+    )
 
 
 @router.post("/{booking_id}/documents/suggest", response_model=DocumentSuggestionsOut)

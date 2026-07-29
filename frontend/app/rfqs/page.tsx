@@ -72,10 +72,10 @@ function Inbox() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">RFQ Inbox</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">RFQs</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Paste a customer email or message — the AI extracts structured shipment
-          details and flags missing information.
+          Connected mailboxes create RFQs automatically. Use the box below for
+          anything that arrives another way — WhatsApp, a phone call, a portal.
         </p>
       </div>
 

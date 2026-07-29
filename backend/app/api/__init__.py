@@ -9,6 +9,7 @@ from app.api import (
     follow_ups,
     health,
     issues,
+    mailbox,
     quotes,
     rates,
     reports,
@@ -27,5 +28,6 @@ api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(customers.router, prefix="/customers", tags=["customers"])
 api_router.include_router(bookings.router, prefix="/bookings", tags=["bookings"])
 api_router.include_router(issues.router, prefix="/issues", tags=["issues"])
+api_router.include_router(mailbox.router, prefix="/mailbox", tags=["mailbox"])
 api_router.include_router(exports.router, prefix="/exports", tags=["exports"])
 api_router.include_router(settings_api.router, prefix="/settings", tags=["settings"])

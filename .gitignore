@@ -38,3 +38,6 @@ backend/storage/
 .idea/
 .vscode/
 *.swp
+
+# Next.js incremental build cache
+frontend/tsconfig.tsbuildinfo

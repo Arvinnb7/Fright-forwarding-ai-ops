@@ -37,6 +37,16 @@ const COLORS: Record<string, string> = {
   Cancelled: "bg-slate-100 text-slate-500",
   High: "bg-orange-100 text-orange-800",
   Critical: "bg-rose-100 text-rose-800",
+  // Email intake
+  "New RFQ": "bg-blue-100 text-blue-800",
+  "Partner rate reply": "bg-indigo-100 text-indigo-800",
+  "Customer reply": "bg-violet-100 text-violet-800",
+  "Not relevant": "bg-slate-100 text-slate-500",
+  Unclassified: "bg-slate-100 text-slate-600",
+  Processed: "bg-green-100 text-green-800",
+  Ignored: "bg-slate-100 text-slate-500",
+  Failed: "bg-rose-100 text-rose-800",
+  Replied: "bg-green-100 text-green-800",
 };
 
 export function StatusBadge({ value }: { value: string }) {

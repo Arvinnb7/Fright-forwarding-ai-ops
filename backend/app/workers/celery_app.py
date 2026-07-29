@@ -22,6 +22,10 @@ celery_app.conf.update(
     task_track_started=True,
     timezone="UTC",
     beat_schedule={
+        "poll-mailboxes": {
+            "task": "app.workers.tasks.poll_mailboxes",
+            "schedule": settings.email_poll_interval_minutes * 60.0,
+        },
         "refresh-follow-ups-every-morning": {
             "task": "app.workers.tasks.refresh_due_follow_ups",
             "schedule": crontab(hour=6, minute=0),

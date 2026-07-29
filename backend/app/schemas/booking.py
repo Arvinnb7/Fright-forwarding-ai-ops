@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from app.models.enums import BookingStatus, DocumentStatus
 
@@ -74,8 +74,16 @@ class DocumentOut(BaseModel):
     document_type: str
     status: DocumentStatus
     notes: str | None
+    file_name: str | None = None
+    file_size_bytes: int | None = None
+    content_type: str | None = None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def has_file(self) -> bool:
+        return bool(self.file_name)
 
 
 class DocumentSuggestion(BaseModel):
