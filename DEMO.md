@@ -111,6 +111,20 @@ from the DB, narrated by the AI, now leading with the trailing-week response
 rate — copy it or download the PDF. CSV exports are on the RFQ / Quotes /
 Customers pages.
 
+## When someone asks "but how accurate is it really?"
+
+Do not answer with an adjective. Run it:
+
+```bash
+docker compose exec backend python -m app.eval_extraction
+```
+
+40 labelled cases, the production parser, per-field precision and recall — and
+a hallucination rate reported separately, because a value the customer never
+gave is a different kind of wrong from one that was missed. Say plainly that
+the corpus is synthetic and offer to re-measure it on 40 of *their* emails
+during the pilot; that offer is usually worth more than the number.
+
 ## The one-liner to close with
 
 > You already lose most enquiries to the clock, not to price. This answers all

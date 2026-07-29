@@ -90,6 +90,43 @@ every draft still needs human approval. Credentials are encrypted at rest
 Polling runs in the Celery worker every `EMAIL_POLL_INTERVAL_MINUTES` (default
 3); **Check now** on the inbox page polls immediately.
 
+## How accurate is the extraction? (measure it)
+
+```bash
+docker compose exec backend python -m app.eval_extraction          # your provider
+docker compose exec backend python -m app.eval_extraction --stub   # no API key
+```
+
+40 hand-labelled cases written to look like what a freight desk actually
+receives — telegraphic one-liners, forwarded chains, non-native English,
+signature-block noise, pasted spreadsheet rows, replies that are not enquiries
+at all, and traps such as *"delivered to our office"* (which is **not** DDP) and
+*"Ningbo, NOT Shanghai"*. It runs the production parser, not a test-only copy.
+
+Three failure modes are reported **separately**, because they are not equally
+bad:
+
+| | Costs |
+|---|---|
+| **missed** — left null when the customer did say it | a follow-up question |
+| **wrong** — filled with something else | a quotation against the wrong facts |
+| **invented** — a value the customer never gave | a price built on fiction |
+
+A single accuracy percentage hides the third. To show why that matters, the
+harness ships a deliberately fabricating stub: it scores **82.5% accuracy** and
+**100% recall** while inventing a value for *every* field the customer never
+mentioned — a hallucination rate of 100%. Look at that column first.
+
+> **The corpus is synthetic.** No customer email archive was available when it
+> was written, so it is stored as a plain JSONL file
+> (`app/eval/corpus/rfq_extraction.jsonl`) specifically so a pilot customer's
+> own labelled emails can replace it without code changes. Re-measure on real
+> mail before quoting a number to anyone.
+
+CI runs `--stub oracle`, which must score exactly 100%: that checks the ruler
+(corpus and scoring), not the model. Use `--min-accuracy` / `--max-hallucination`
+with a real key as a regression gate on prompt changes.
+
 ## Team, roles and the audit trail
 
 Three roles, enforced rather than advisory:
@@ -200,8 +237,10 @@ You can run services individually — see `backend/README.md` for the backend
   modified.
 - `RUN_INTEGRATION=1 pytest tests/integration` — full HTTP flow against a live
   Postgres (self-bootstrapping: migrates + creates the admin), including email
-  ingestion end to end with an injected fake mailbox and the cross-tenant
-  isolation suite.
+  ingestion end to end with an injected fake mailbox, the cross-tenant isolation
+  suite, and the role-enforcement sweep.
+- `python -m app.eval_extraction --stub oracle` — extraction-harness self-check,
+  no API key needed; CI requires exactly 100%.
 - GitHub Actions runs unit, integration (Postgres+Redis services), and the
   production frontend build on every push.
 - Daily `pg_dump` backups are written to `storage/backups/` (worker keeps the
@@ -235,8 +274,10 @@ hosted multi-customer deployment is in place rather than deferred:
   depends on a developer remembering to apply them per endpoint.
 - Per-provider LLM abstraction — keys and models are environment config.
 
-Still open, tracked honestly: a published extraction-accuracy number measured
-on real customer emails, and a production deployment guide with TLS.
+Still open, tracked honestly: the extraction-accuracy number is measured
+against a synthetic corpus and needs re-measuring on a real customer's mail
+before it is published, and there is no production deployment guide with TLS
+yet.
 
 ## Safety & control rules
 
