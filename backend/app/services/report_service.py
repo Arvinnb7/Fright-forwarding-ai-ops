@@ -5,7 +5,7 @@ always correct; the Report agent only turns them into prose.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import func, select
@@ -16,6 +16,7 @@ from app.models.enums import FollowUpStatus, QuoteStatus, RFQStatus
 from app.models.follow_up import FollowUp
 from app.models.quote import Quote
 from app.models.rfq import RFQ
+from app.services.performance import compute_performance
 
 _ACTIVE_QUOTE_STATUSES = [
     QuoteStatus.PENDING_APPROVAL,
@@ -91,9 +92,16 @@ def compute_daily_metrics(db: Session, day: date | None = None) -> dict[str, Any
         ).scalars().all()
     )
 
+    # Trailing-week speed, so the daily report leads with the number that
+    # actually decides whether enquiries are won or lost.
+    speed = compute_performance(db, day - timedelta(days=6), day)
+
     return {
         "date": day.isoformat(),
         "rfqs_received": rfqs_received,
+        "response_rate_7d": speed["response_rate"],
+        "median_response_hours_7d": speed["median_response_hours"],
+        "unanswered_rfqs_7d": speed["unanswered_total"],
         "quotes_sent": quotes_sent,
         "pending_rates": pending_rates,
         "confirmed_bookings": confirmed_bookings,

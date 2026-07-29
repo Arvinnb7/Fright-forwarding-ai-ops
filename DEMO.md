@@ -77,9 +77,20 @@ draft generated from the current status. Upload a PDF against a checklist row �
 it stores the real file and flips the row to **Received**. The open
 **Customs-document issue** shows escalation / customer-explanation drafts.
 
-**8. Reports (30s).** Generate the daily management summary — accurate numbers
-from the DB, narrated by the AI — copy it or download the PDF. CSV exports are
-on the RFQ / Quotes / Customers pages.
+**8. Performance — the number that justifies the invoice (60s).** The seeded
+history shows four weeks of a realistic desk: about 61% of enquiries answered,
+median 2.6h, and a win rate falling from ~71% when answered inside an hour to
+near zero once the answer takes days. Say plainly that the benchmark column is
+published industry data, not their business — then point at the *unanswered*
+list, because that is the part they can act on this afternoon.
+
+If someone asks "how do I know it worked?": measure the first week before
+changing anything, then compare. The CSV export is the before/after.
+
+**9. Reports (30s).** Generate the daily management summary — accurate numbers
+from the DB, narrated by the AI, now leading with the trailing-week response
+rate — copy it or download the PDF. CSV exports are on the RFQ / Quotes /
+Customers pages.
 
 ## The one-liner to close with
 

@@ -42,9 +42,15 @@ class RFQ(Base, TenantMixin, TimestampMixin):
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"))
 
     raw_message: Mapped[str | None] = mapped_column(Text)
-    # When the CUSTOMER asked (email date), not when we processed it.
-    # This is the start of the response-time clock the ROI case rests on.
+    # The two ends of the response-time clock the whole ROI case rests on.
+    # `received_at` is when the CUSTOMER asked (the email date), not when we
+    # processed it; `first_quoted_at` is when the first quotation actually went
+    # out. Stored rather than derived so the number can be filtered and sorted
+    # on directly, and so a later status change cannot rewrite history.
     received_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
+    first_quoted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), index=True
     )
 

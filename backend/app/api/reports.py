@@ -1,7 +1,7 @@
 """Reporting endpoints: live dashboard metrics + AI daily report."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
@@ -12,7 +12,9 @@ from app.core.deps import get_current_user
 from app.llm import get_llm
 from app.llm.base import LLMError
 from app.models.user import User
+from app.schemas.performance import PerformanceReport
 from app.services.pdf import text_to_pdf
+from app.services.performance import compute_performance
 from app.services.report_service import compute_daily_metrics
 
 router = APIRouter()
@@ -25,6 +27,51 @@ def dashboard_metrics(
 ) -> dict:
     """Live metrics for the dashboard cards (no LLM — fast)."""
     return compute_daily_metrics(db)
+
+
+@router.get("/performance", response_model=PerformanceReport)
+def performance_report(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    days: int = 30,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict:
+    """Speed-to-quote metrics: response rate, response time, win rate by speed.
+
+    Deterministic (no LLM) — these are the numbers a buyer is asked to act on,
+    so they come straight from the database.
+    """
+    if days < 1 or days > 366:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 366")
+    end = end_date or date.today()
+    start = start_date or (end - timedelta(days=days - 1))
+    if start > end:
+        raise HTTPException(status_code=400, detail="start_date must not be after end_date")
+    return compute_performance(db, start, end)
+
+
+@router.get("/performance.csv")
+def performance_csv(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    days: int = 30,
+) -> Response:
+    """The daily series, for a spreadsheet or a board pack."""
+    end = date.today()
+    metrics = compute_performance(db, end - timedelta(days=max(days, 1) - 1), end)
+    lines = ["date,rfqs_received,rfqs_quoted,median_response_hours"]
+    for point in metrics["daily"]:
+        median = point["median_response_hours"]
+        lines.append(
+            f"{point['date']},{point['rfqs']},{point['quoted']},"
+            f"{'' if median is None else median}"
+        )
+    return Response(
+        content="\n".join(lines) + "\n",
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="performance.csv"'},
+    )
 
 
 @router.get("/daily")

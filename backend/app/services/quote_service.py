@@ -145,6 +145,11 @@ def approve_quote(db: Session, quote: Quote, payload: QuoteApprove, llm: LLMClie
             rfq = db.get(RFQ, quote.rfq_id)
             if rfq:
                 rfq.status = RFQStatus.QUOTED
+                # Only ever set once: the response time is measured against the
+                # FIRST answer the customer received. A revised quotation sent
+                # later must not make a slow response look fast.
+                if rfq.first_quoted_at is None:
+                    rfq.first_quoted_at = quote.sent_at
     else:
         quote.status = QuoteStatus.APPROVED
 

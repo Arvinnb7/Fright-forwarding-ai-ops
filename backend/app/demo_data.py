@@ -85,6 +85,92 @@ def seed() -> None:
         _seed_within_org(db, llm)
 
 
+# Four weeks of enquiry history: (days ago, hours to first quote or None if it
+# was never answered, outcome). Shaped to show a real desk's problem — a third
+# of enquiries never answered, and a visible fall in win rate as the response
+# slows — so the Performance page has something honest to display on day one.
+_HISTORY: list[tuple[int, float | None, str]] = [
+    (26, 0.4, "won"), (25, 0.6, "won"), (24, 0.8, "lost"), (22, 0.3, "won"),
+    (21, 0.9, "won"),
+    (20, 1.5, "won"), (19, 2.0, "lost"), (18, 3.2, "won"), (17, 2.6, "lost"),
+    (16, 6.0, "won"), (15, 11.0, "lost"), (14, 20.0, "lost"),
+    (12, 30.0, "lost"), (11, 52.0, "lost"),
+    (10, 96.0, "lost"), (9, 120.0, "lost"), (8, 80.0, "won"),
+    (27, None, "unanswered"), (23, None, "unanswered"), (19, None, "unanswered"),
+    (13, None, "unanswered"), (9, None, "unanswered"), (6, None, "unanswered"),
+    (4, None, "unanswered"),
+]
+
+_HISTORY_LANES = [
+    ("Shanghai", "Jebel Ali", "Sea", "FCL", "40HC"),
+    ("Ningbo", "Dubai", "Sea", "FCL", "20GP"),
+    ("Shenzhen", "Dubai", "Air", "Air Cargo", None),
+    ("Dubai", "Muscat", "Road", "Trucking", None),
+    ("Mundra", "Jebel Ali", "Sea", "FCL", "20GP"),
+]
+
+
+def _seed_response_history(db, customer_ids: list[int]) -> None:
+    """Historical RFQs with controlled timings, for the Performance page.
+
+    Written directly rather than through the quote graph: this is history, and
+    the point is the timestamps, not re-running the approval workflow 24 times.
+    """
+    from datetime import datetime, timezone
+
+    from app.models.enums import QuoteStatus
+    from app.models.quote import Quote
+    from app.models.rfq import RFQ
+    from app.services.reference import quote_number, sequence_for
+
+    now = datetime.now(timezone.utc)
+    for index, (days_ago, answer_hours, outcome) in enumerate(_HISTORY):
+        origin, destination, mode, shipment, container = _HISTORY_LANES[
+            index % len(_HISTORY_LANES)
+        ]
+        asked_at = now - timedelta(days=days_ago, hours=index % 8)
+        rfq = create_rfq_from_extraction(
+            db,
+            _extraction(
+                origin=origin, destination=destination, transport_mode=mode,
+                shipment_type=shipment, container_type=container,
+                commodity="General cargo", missing_fields=[],
+                urgency="Normal", urgency_score=0.4,
+                recommended_next_action="Quote from partner rates.",
+            ),
+            f"Please quote {container or ''} {origin} to {destination}.".strip(),
+            customer_id=customer_ids[index % len(customer_ids)],
+        )
+        rfq.received_at = asked_at
+
+        if answer_hours is None:
+            rfq.status = RFQStatus.NEW
+            db.commit()
+            continue
+
+        sent_at = asked_at + timedelta(hours=answer_hours)
+        rfq.first_quoted_at = sent_at
+        rfq.status = RFQStatus.WON if outcome == "won" else RFQStatus.LOST
+        cost = 1400.0 + (index % 5) * 120
+        quote = Quote(
+            rfq_id=rfq.id,
+            customer_id=rfq.customer_id,
+            cost_amount=cost,
+            selling_price=round(cost * 1.2, 2),
+            gross_margin=round(cost * 0.2, 2),
+            gross_margin_percentage=16.7,
+            status=QuoteStatus.WON if outcome == "won" else QuoteStatus.LOST,
+            sent_at=sent_at,
+            lost_reason=None if outcome == "won" else "Quoted after the customer had booked.",
+        )
+        db.add(quote)
+        db.flush()
+        quote.quote_number = quote_number(
+            sequence_for(db, Quote, quote.org_id, quote.id)
+        )
+        db.commit()
+
+
 def _seed_within_org(db, llm) -> None:
     try:
         exists = db.execute(
@@ -340,13 +426,18 @@ def _seed_within_org(db, llm) -> None:
         rfq_lost.status = RFQStatus.LOST
         db.commit()
 
+        # ── 8. Four weeks of response-time history ───────────
+        _seed_response_history(db, [gulf.id, shen.id, muscat.id])
+
         print(
             "Demo data created:\n"
             "  3 customers · 7 RFQs across statuses · quotes (sent / pending "
             "approval / won / lost)\n"
             "  1 booking in transit with a 4-document checklist and 1 open "
             "high-severity issue\n"
-            "  1 follow-up due today\n\n"
+            "  1 follow-up due today\n"
+            f"  {len(_HISTORY)} enquiries of response-time history over four "
+            "weeks, for the Performance page\n\n"
             "Note: draft texts in demo records are canned placeholders — "
             "regenerate any draft in the app to see your real AI provider.\n"
             "Log in and open the Dashboard."

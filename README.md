@@ -90,6 +90,27 @@ every draft still needs human approval. Credentials are encrypted at rest
 Polling runs in the Celery worker every `EMAIL_POLL_INTERVAL_MINUTES` (default
 3); **Check now** on the inbox page polls immediately.
 
+## Measuring whether it works (Performance page)
+
+Speed is the thing being sold, so it is measured rather than asserted. The
+**Performance** page and `GET /api/reports/performance` report, from the
+database and with no model involved:
+
+- **response rate** — the share of enquiries that ever received a quotation;
+- **median and p90 response time** — from the customer's email to the *first*
+  quotation sent (a revised quote later cannot make a slow answer look fast);
+- **win rate bucketed by response speed** — your own numbers, so the case for
+  answering quickly is argued with your data, not a vendor's slide;
+- **unanswered enquiries**, longest wait first — directly actionable;
+- quotations per day and per person, and follow-up compliance.
+
+Two deliberate choices: a rate with nothing to divide by reports *no data*
+rather than `0%`, and the industry benchmarks shown alongside are labelled as
+benchmarks, never mixed into your figures.
+
+Run a pilot the honest way: measure the first week before changing anything,
+then compare. `GET /api/reports/performance.csv` exports the daily series.
+
 ## Demo dataset (optional)
 
 Load a story-driven dataset (customers, RFQs in every status, a paused quote
@@ -163,8 +184,7 @@ hosted multi-customer deployment is in place rather than deferred:
 
 Still open, tracked honestly: role enforcement across endpoints and an audit
 trail, per-lane rate reuse, a published extraction-accuracy number measured on
-real customer emails, response-time reporting, and a production deployment
-guide with TLS.
+real customer emails, and a production deployment guide with TLS.
 
 ## Safety & control rules
 

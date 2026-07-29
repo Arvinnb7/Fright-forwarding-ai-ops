@@ -69,6 +69,37 @@ function Dashboard() {
         </Link>
       </div>
 
+      {/* The two numbers that decide whether enquiries are won or lost. */}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Link href="/performance">
+          <StatCard
+            label="Answered (7 days)"
+            value={m?.response_rate_7d === null || m === null ? "—" : `${m.response_rate_7d}%`}
+            hint="Share of enquiries that got a quote"
+          />
+        </Link>
+        <Link href="/performance">
+          <StatCard
+            label="Median response (7 days)"
+            value={
+              m?.median_response_hours_7d == null
+                ? "—"
+                : m.median_response_hours_7d < 1
+                  ? `${Math.round(m.median_response_hours_7d * 60)} min`
+                  : `${m.median_response_hours_7d} h`
+            }
+            hint="From the customer's email to the first quote"
+          />
+        </Link>
+        <Link href="/performance">
+          <StatCard
+            label="Unanswered (7 days)"
+            value={m?.unanswered_rfqs_7d ?? "—"}
+            hint="Still waiting for a first quotation"
+          />
+        </Link>
+      </div>
+
       <div className="mt-8">
         <Panel title="High-value opportunities">
           {!m || m.high_value_opportunities.length === 0 ? (

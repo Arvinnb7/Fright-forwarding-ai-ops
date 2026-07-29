@@ -132,6 +132,10 @@ export interface DashboardMetrics {
   date: string;
   rfqs_received: number;
   quotes_sent: number;
+  // Trailing-week speed. Null means "no enquiries yet", not zero.
+  response_rate_7d: number | null;
+  median_response_hours_7d: number | null;
+  unanswered_rfqs_7d: number;
   pending_rates: number;
   confirmed_bookings: number;
   follow_ups_due: number;
@@ -283,6 +287,55 @@ export interface IngestRunResult {
   customer_replies_linked: number;
   ignored: number;
   failed: number;
+}
+
+export interface ResponseBucket {
+  label: string;
+  quoted: number;
+  won: number;
+  win_rate: number | null;
+}
+
+export interface UnansweredRFQ {
+  rfq_id: number;
+  reference: string | null;
+  lane: string;
+  asked_at: string;
+  waiting_hours: number;
+}
+
+export interface DailyPoint {
+  date: string;
+  rfqs: number;
+  quoted: number;
+  median_response_hours: number | null;
+}
+
+export interface PerformanceReport {
+  start_date: string;
+  end_date: string;
+  days: number;
+  rfqs_received: number;
+  rfqs_quoted: number;
+  response_rate: number | null;
+  median_response_hours: number | null;
+  p90_response_hours: number | null;
+  fastest_response_hours: number | null;
+  slowest_response_hours: number | null;
+  quotes_sent: number;
+  quotes_per_day: number;
+  active_users: number;
+  quotes_per_user_per_day: number | null;
+  quotes_won: number;
+  quotes_lost: number;
+  win_rate: number | null;
+  win_rate_by_response_time: ResponseBucket[];
+  follow_ups_due: number;
+  follow_ups_actioned: number;
+  follow_up_compliance: number | null;
+  unanswered_rfqs: UnansweredRFQ[];
+  unanswered_total: number;
+  daily: DailyPoint[];
 }
 
 export const EMAIL_CLASSIFICATIONS = [
