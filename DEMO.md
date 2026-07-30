@@ -125,6 +125,21 @@ gave is a different kind of wrong from one that was missed. Say plainly that
 the corpus is synthetic and offer to re-measure it on 40 of *their* emails
 during the pilot; that offer is usually worth more than the number.
 
+## Closing: the ROI page, and the offer that goes with it
+
+**Reports → ROI** → **One-pager**. Three labelled blocks: measured, assumed,
+projected. Point at the assumptions and ask for *their* gross profit per
+shipment — using ours would make the whole page ignorable.
+
+Then say the part that earns the trust: the projection uses their own win rate
+by response speed, no industry averages; if their fast answers do not convert
+better, the page says so and tells them to look at pricing instead; and with too
+little history it refuses to project at all.
+
+Offer the four-week pilot from `PILOT.md`: week 1 changes nothing and just
+measures their baseline. A pilot that cannot come back negative proves nothing,
+and they know it.
+
 ## The one-liner to close with
 
 > You already lose most enquiries to the clock, not to price. This answers all

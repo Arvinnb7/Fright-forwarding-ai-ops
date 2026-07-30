@@ -1,0 +1,138 @@
+# Freight AI Ops — production stack.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differences from the development compose file, all deliberate:
+#   * Postgres and Redis are NOT published to the host. In development they are
+#     exposed for psql and redis-cli; in production a published database port is
+#     an invitation, and nothing outside this network needs to reach them.
+#   * No source bind-mounts. The image is the artefact; a mounted working copy
+#     means the running code is whatever happens to be on the disk.
+#   * Caddy terminates TLS and is the only thing listening publicly. It obtains
+#     and renews certificates automatically from Let's Encrypt.
+#   * The worker runs beat in-process, as in development. That is correct for a
+#     single-node deployment and wrong for more than one: see DEPLOYMENT.md
+#     before scaling the worker, or the same job will fire once per replica.
+#   * Everything restarts unless explicitly stopped, and the database has a real
+#     healthcheck so the API does not start against a database that is not up.
+#
+# Required in .env: DOMAIN, ACME_EMAIL, SECRET_KEY, POSTGRES_PASSWORD,
+# ADMIN_EMAIL, ADMIN_PASSWORD, MAILBOX_ENCRYPTION_KEY, ANTHROPIC_API_KEY.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-freight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-freight_ai_ops}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freight} -d ${POSTGRES_DB:-freight_ai_ops}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: production
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      STORAGE_DIR: /app/storage/files
+      CORS_ORIGINS: '["https://${DOMAIN:?DOMAIN must be set}"]'
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Migrations run once, on the API container, before it serves. The worker
+    # waits for the API to be healthy rather than racing it to the same DDL.
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.initial_data &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: production
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      STORAGE_DIR: /app/storage/files
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: >
+      sh -c "celery -A app.workers.celery_app.celery_app worker --beat --loglevel=info"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked in at build time (NEXT_PUBLIC_*). Changing the domain means
+        # rebuilding this image, not just restarting it. Same origin as the
+        # dashboard, since Caddy routes /api to the backend — so there is no
+        # cross-origin request to allow in the first place.
+        NEXT_PUBLIC_API_BASE_URL: https://${DOMAIN:?DOMAIN must be set}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN must be set}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:
+  caddydata:
+  caddyconfig:

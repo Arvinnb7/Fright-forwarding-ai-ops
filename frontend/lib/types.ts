@@ -442,6 +442,50 @@ export interface PerformanceReport {
   daily: DailyPoint[];
 }
 
+export interface RoiReport {
+  start_date: string;
+  end_date: string;
+  assumptions: {
+    gross_profit_per_shipment: number;
+    fast_response_hours: number;
+    subscription_per_user_per_month: number;
+  };
+  measured: {
+    window_days: number;
+    enquiries_received: number;
+    enquiries_answered: number;
+    enquiries_unanswered: number;
+    response_rate: number | null;
+    median_response_hours: number | null;
+    p90_response_hours: number | null;
+    quotes_won: number;
+    quotes_lost: number;
+    win_rate: number | null;
+    fast_quotes: number;
+    fast_wins: number;
+    slow_quotes: number;
+    slow_wins: number;
+    enquiries_per_working_day: number;
+  };
+  /** Null when there is not enough history — `blockers` then says what is
+   *  missing, rather than a number being produced anyway. */
+  projection: {
+    fast_win_rate: number;
+    slow_win_rate: number;
+    uplift_points: number;
+    additional_wins_in_window: number;
+    additional_wins_per_year: number;
+    annual_gross_profit: number;
+    seats: number;
+    annual_subscription: number;
+    net_annual_value: number;
+    return_multiple: number | null;
+  } | null;
+  confidence: string;
+  blockers: string[];
+  narrative: string[];
+}
+
 export const EMAIL_CLASSIFICATIONS = [
   "New RFQ",
   "Partner rate reply",

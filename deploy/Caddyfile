@@ -1,0 +1,59 @@
+# TLS terminator and the only publicly listening process.
+#
+# Caddy obtains and renews a Let's Encrypt certificate for {$DOMAIN} on its own;
+# there is no certbot cron to forget about. HTTP is redirected to HTTPS by
+# default, so that is not configured here.
+#
+# The dashboard and the API share one origin: /api goes to the backend and
+# everything else to the frontend. That removes cross-origin requests entirely
+# rather than configuring CORS to permit them.
+
+{
+	email {$ACME_EMAIL}
+	# Uncomment while testing so a misconfiguration does not burn the
+	# Let's Encrypt rate limit for the real domain:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	# The API, including uploads and file downloads.
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Interactive API docs. Comment this block out to keep the schema private.
+	handle /docs* {
+		reverse_proxy backend:8000
+	}
+	handle /openapi.json {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+
+	header {
+		# The dashboard is an application, not a document to be framed.
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		# Tell browsers to stay on HTTPS. Two years, subdomains included —
+		# remove this line if you serve anything over plain HTTP on a subdomain.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		-Server
+	}
+
+	# Uploaded documents can be large; a freight file may carry scanned
+	# paperwork. Keep this in step with MAX_UPLOAD_MB in .env.
+	request_body {
+		max_size 30MB
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

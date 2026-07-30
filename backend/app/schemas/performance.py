@@ -60,3 +60,60 @@ class PerformanceReport(BaseModel):
     unanswered_rfqs: list[UnansweredRFQ]
     unanswered_total: int
     daily: list[DailyPoint]
+
+
+# ── ROI (see app/services/roi.py) ────────────────────────────
+
+
+class RoiAssumptionsOut(BaseModel):
+    gross_profit_per_shipment: float
+    fast_response_hours: float
+    subscription_per_user_per_month: float
+
+
+class RoiMeasured(BaseModel):
+    """Everything here comes from the customer's own records."""
+
+    window_days: int
+    enquiries_received: int
+    enquiries_answered: int
+    enquiries_unanswered: int
+    response_rate: float | None
+    median_response_hours: float | None
+    p90_response_hours: float | None
+    quotes_won: int
+    quotes_lost: int
+    win_rate: float | None
+    fast_quotes: int
+    fast_wins: int
+    slow_quotes: int
+    slow_wins: int
+    enquiries_per_working_day: float
+
+
+class RoiProjection(BaseModel):
+    """Their win rates applied to every enquiry. No industry averages."""
+
+    fast_win_rate: float
+    slow_win_rate: float
+    uplift_points: float
+    additional_wins_in_window: float
+    additional_wins_per_year: float
+    annual_gross_profit: float
+    seats: int
+    annual_subscription: float
+    net_annual_value: float
+    return_multiple: float | None
+
+
+class RoiReport(BaseModel):
+    start_date: str
+    end_date: str
+    assumptions: RoiAssumptionsOut
+    measured: RoiMeasured
+    # None when there is not enough history; `blockers` then says what is missing
+    # rather than a number being produced anyway.
+    projection: RoiProjection | None
+    confidence: str
+    blockers: list[str]
+    narrative: list[str]

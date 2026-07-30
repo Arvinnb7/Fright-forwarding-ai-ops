@@ -90,6 +90,31 @@ every draft still needs human approval. Credentials are encrypted at rest
 Polling runs in the Celery worker every `EMAIL_POLL_INTERVAL_MINUTES` (default
 3); **Check now** on the inbox page polls immediately.
 
+## Is it worth money? (the ROI page)
+
+**Reports → ROI**, or `GET /api/reports/roi.pdf` for a one-pager.
+
+It is built to be able to say *no*:
+
+- the win-rate uplift comes from **your** data — how much better you convert
+  when you answer quickly, measured on your own quotes. No industry average
+  enters the arithmetic;
+- if your fast answers do not convert better, it reports no benefit and says to
+  look at pricing or lane coverage instead of buying something to make you
+  faster;
+- with too little history it **refuses to project** and lists what is missing,
+  rather than producing an encouraging number from four quotes;
+- the only two things it cannot measure — gross profit per shipment, and what
+  counts as "fast" — are inputs, printed on the output so they can be
+  challenged.
+
+The one-pager separates *measured*, *assumed* and *projected* into three
+labelled blocks for exactly that reason.
+
+See **`PILOT.md`** for the four-week playbook: week 1 measures the baseline
+before anything changes, so the review at the end compares against their own
+numbers rather than against a claim.
+
 ## How accurate is the extraction? (measure it)
 
 ```bash
@@ -212,12 +237,27 @@ docker compose exec backend python -m app.demo_data
 Idempotent — running it twice does nothing. See `DEMO.md` for a scripted
 5-minute walkthrough.
 
+## Deploying it for real
+
+`DEPLOYMENT.md` is the runbook: a single VM, `docker-compose.prod.yml`, and
+Caddy terminating TLS with automatic Let's Encrypt certificates. Postgres and
+Redis are not published to the host, the dashboard and API share one origin so
+there is no CORS to configure, and upgrades are `git pull` plus a rebuild with
+migrations running before the API serves.
+
+It also documents the things that bite later: rotating the mailbox encryption
+key, taking backups *off* the machine, and splitting Celery beat into its own
+service before running more than one worker.
+
 ## Project layout
 
 ```
 backend/    FastAPI app, SQLAlchemy models, LangGraph agents, Celery workers
 frontend/   Next.js dashboard
-docker-compose.yml
+deploy/     Caddyfile (TLS reverse proxy)
+docker-compose.yml         local development
+docker-compose.prod.yml    production
+DEPLOYMENT.md  PILOT.md  DEMO.md
 .env.example
 Start System.bat
 ```
@@ -276,8 +316,9 @@ hosted multi-customer deployment is in place rather than deferred:
 
 Still open, tracked honestly: the extraction-accuracy number is measured
 against a synthetic corpus and needs re-measuring on a real customer's mail
-before it is published, and there is no production deployment guide with TLS
-yet.
+before it is published; there is no rate limiting on the login endpoint yet
+(see `DEPLOYMENT.md`); and there is no TMS integration, which matters if the
+target customer already runs CargoWise.
 
 ## Safety & control rules
 
